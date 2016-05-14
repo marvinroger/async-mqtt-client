@@ -105,10 +105,14 @@ void AsyncMqttClient::_freeCurrentParsedPacket() {
 }
 
 void AsyncMqttClient::_clear() {
+  _keepAliveTicker.detach();
   _connected = false;
   _freeCurrentParsedPacket();
   _pendingPubRels.clear();
   _pendingPubRels.shrink_to_fit();
+
+  _nextPacketId = 1;
+  _parsingInformation.bufferState = AsyncMqttClientInternals::BufferState::NONE;
 }
 
 /* TCP */
@@ -222,20 +226,19 @@ void AsyncMqttClient::_onConnect(AsyncClient* client) {
 void AsyncMqttClient::_onDisconnect(AsyncClient* client) {
   (void)client;
   _clear();
-  _onDisconnectCallback(TCP_OK);
+  _onDisconnectCallback(AsyncMqttClientDisconnectReason::TCP_DISCONNECTED);
 }
 
 void AsyncMqttClient::_onError(AsyncClient* client, int8_t error) {
   (void)client;
-  _clear();
-  _onDisconnectCallback(static_cast<AsyncMqttClientDisconnectReason>(error));
+  (void)error;
+  // _onDisconnect called anyway
 }
 
 void AsyncMqttClient::_onTimeout(AsyncClient* client, uint32_t time) {
   (void)client;
   (void)time;
-  _clear();
-  _onDisconnectCallback(TCP_TIMEOUT);
+  // _onDisconnect called anyway
 }
 
 void AsyncMqttClient::_onAck(AsyncClient* client, size_t len, uint32_t time) {
@@ -485,7 +488,6 @@ void AsyncMqttClient::disconnect() {
   _client.add(fixedHeader, 2);
   _client.send();
   _client.close();
-  _clear();
 }
 
 uint16_t AsyncMqttClient::subscribe(const char* topic, uint8_t qos) {
