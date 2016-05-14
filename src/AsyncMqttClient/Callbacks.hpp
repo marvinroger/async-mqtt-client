@@ -13,6 +13,7 @@ typedef std::function<void(const char* topic, const char* payload, size_t len, u
 typedef std::function<void(uint16_t packetId)> OnPublishAckCallback;
 
 typedef std::function<void(bool sessionPresent, uint8_t connectReturnCode)> OnConnAckCallback;
+typedef std::function<void()> OnPingRespCallback;
 typedef std::function<void(uint16_t packetId, char status)> OnSubAckCallback;
 typedef std::function<void(uint16_t packetId)> OnUnsubAckCallback;
 typedef std::function<void(const char* topic, const char* payload, size_t len, uint8_t qos, uint16_t packetId)> OnPublishInternalCallback;

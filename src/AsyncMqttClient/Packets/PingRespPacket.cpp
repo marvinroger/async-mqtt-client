@@ -2,17 +2,22 @@
 
 using AsyncMqttClientInternals::PingRespPacket;
 
-PingRespPacket::PingRespPacket(ParsingInformation* parsingInformation)
-: _parsingInformation(parsingInformation) {
+PingRespPacket::PingRespPacket(ParsingInformation* parsingInformation, OnPingRespCallback callback)
+: _parsingInformation(parsingInformation)
+, _callback(callback) {
 }
 
 PingRespPacket::~PingRespPacket() {
 }
 
-void PingRespPacket::parseVariableHeader(char* data, size_t* currentBytePosition) {
+void PingRespPacket::parseVariableHeader(const char* data, size_t* currentBytePosition) {
+  (void)data;
+  (void)currentBytePosition;
   _parsingInformation->bufferState = BufferState::NONE;
+  _callback();
 }
 
-void PingRespPacket::parsePayload(char* data, size_t* currentBytePosition) {
-  // No payload
+void PingRespPacket::parsePayload(const char* data, size_t* currentBytePosition) {
+  (void)data;
+  (void)currentBytePosition;
 }

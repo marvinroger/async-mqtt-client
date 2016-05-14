@@ -2,14 +2,14 @@
 
 AsyncMqttClient::AsyncMqttClient()
 : _keepAlive(15)
-, _nextPacketId(1)
-, _willPayload(nullptr) {
+, _willPayload(nullptr)
+, _nextPacketId(1) {
   _client.onConnect([](void* obj, AsyncClient* c) { (static_cast<AsyncMqttClient*>(obj))->_onConnect(c); }, this);
   _client.onDisconnect([](void* obj, AsyncClient* c) { (static_cast<AsyncMqttClient*>(obj))->_onDisconnect(c); }, this);
   _client.onError([](void* obj, AsyncClient* c, int8_t error) { (static_cast<AsyncMqttClient*>(obj))->_onError(c, error); }, this);
-  _client.onTimeout([](void* obj, AsyncClient* c, uint32_t time) { (static_cast<AsyncMqttClient*>(obj))->_onTimeout(c); }, this);
-  _client.onAck([](void* obj, AsyncClient* c, size_t len, uint32_t time) { (static_cast<AsyncMqttClient*>(obj))->_onAck(c, len); }, this);
-  _client.onData([](void* obj, AsyncClient* c, void* data, size_t len) { (static_cast<AsyncMqttClient*>(obj))->_onData(data, len); }, this);
+  _client.onTimeout([](void* obj, AsyncClient* c, uint32_t time) { (static_cast<AsyncMqttClient*>(obj))->_onTimeout(c, time); }, this);
+  _client.onAck([](void* obj, AsyncClient* c, size_t len, uint32_t time) { (static_cast<AsyncMqttClient*>(obj))->_onAck(c, len, time); }, this);
+  _client.onData([](void* obj, AsyncClient* c, void* data, size_t len) { (static_cast<AsyncMqttClient*>(obj))->_onData(c, static_cast<char*>(data), len); }, this);
 
   _parsingInformation.bufferState = AsyncMqttClientInternals::BufferState::NONE;
 
@@ -19,11 +19,11 @@ AsyncMqttClient::AsyncMqttClient()
   _clientId = _generatedClientId;
 
   _onConnectCallback = []() { };
-  _onDisconnectCallback = [](AsyncMqttClientDisconnectReason reason) { };
-  _onSubscribeCallback = [](uint16_t packetId, uint8_t qos) { };
-  _onUnsubscribeCallback = [](uint16_t packetId) { };
-  _onPublishReceivedCallback = [](const char* topic, const char* payload, size_t len, uint8_t qos) { };
-  _onPublishAckCallback = [](uint16_t packetId) { };
+  _onDisconnectCallback = [](AsyncMqttClientDisconnectReason reason) { (void)reason; };
+  _onSubscribeCallback = [](uint16_t packetId, uint8_t qos) { (void)packetId; (void)qos; };
+  _onUnsubscribeCallback = [](uint16_t packetId) { (void)packetId; };
+  _onPublishReceivedCallback = [](const char* topic, const char* payload, size_t len, uint8_t qos) { (void)topic; (void)payload; (void)len; (void)qos; };
+  _onPublishAckCallback = [](uint16_t packetId) { (void)packetId; };
 }
 
 AsyncMqttClient::~AsyncMqttClient() {
@@ -99,26 +99,21 @@ AsyncMqttClient& AsyncMqttClient::onPublishAck(AsyncMqttClientInternals::OnPubli
   return *this;
 }
 
-void AsyncMqttClient::_clear() {
-  _connected = false;
+void AsyncMqttClient::_freeCurrentParsedPacket() {
   delete _currentParsedPacket;
   _currentParsedPacket = nullptr;
-  _pendingSubscriptions.clear();
-  _pendingSubscriptions.shrink_to_fit();
-  _pendingUnsubscriptions.clear();
-  _pendingUnsubscriptions.shrink_to_fit();
+}
+
+void AsyncMqttClient::_clear() {
+  _connected = false;
+  _freeCurrentParsedPacket();
   _pendingPubRels.clear();
   _pendingPubRels.shrink_to_fit();
-  _pendingPubAcks.clear();
-  _pendingPubAcks.shrink_to_fit();
-  _pendingPubRecs.clear();
-  _pendingPubRecs.shrink_to_fit();
-  _pendingPubComps.clear();
-  _pendingPubComps.shrink_to_fit();
 }
 
 /* TCP */
 void AsyncMqttClient::_onConnect(AsyncClient* client) {
+  (void)client;
   char fixedHeader[5];
   fixedHeader[0] = AsyncMqttClientInternals::PacketType.CONNECT;
   fixedHeader[0] = fixedHeader[0] << 4;
@@ -225,43 +220,49 @@ void AsyncMqttClient::_onConnect(AsyncClient* client) {
 }
 
 void AsyncMqttClient::_onDisconnect(AsyncClient* client) {
+  (void)client;
   _clear();
   _onDisconnectCallback(TCP_OK);
 }
 
 void AsyncMqttClient::_onError(AsyncClient* client, int8_t error) {
+  (void)client;
   _clear();
   _onDisconnectCallback(static_cast<AsyncMqttClientDisconnectReason>(error));
 }
 
-void AsyncMqttClient::_onTimeout(AsyncClient* client) {
+void AsyncMqttClient::_onTimeout(AsyncClient* client, uint32_t time) {
+  (void)client;
+  (void)time;
   _clear();
   _onDisconnectCallback(TCP_TIMEOUT);
 }
 
-void AsyncMqttClient::_onAck(AsyncClient* client, size_t len) {
+void AsyncMqttClient::_onAck(AsyncClient* client, size_t len, uint32_t time) {
+  (void)client;
+  (void)len;
+  (void)time;
   _keepAliveTicker.detach();
   _keepAliveTicker.once(_keepAlive, _keepAliveTick, &_client);
 }
 
-void AsyncMqttClient::_onData(void* data, size_t len) {
+void AsyncMqttClient::_onData(AsyncClient* client, const char* data, size_t len) {
+  (void)client;
   size_t currentBytePosition = 0;
   char currentByte;
   do {
     switch (_parsingInformation.bufferState) {
       case AsyncMqttClientInternals::BufferState::NONE:
-        currentByte = (static_cast<char*>(data))[currentBytePosition++];
+        currentByte = data[currentBytePosition++];
         _parsingInformation.packetType = currentByte >> 4;
         _parsingInformation.packetFlags = (currentByte << 4) >> 4;
         _parsingInformation.bufferState = AsyncMqttClientInternals::BufferState::REMAINING_LENGTH;
-        delete _currentParsedPacket;
-        _currentParsedPacket = nullptr;
         switch (_parsingInformation.packetType) {
           case AsyncMqttClientInternals::PacketType.CONNACK:
             _currentParsedPacket = new AsyncMqttClientInternals::ConnAckPacket(&_parsingInformation, std::bind(&AsyncMqttClient::_onConnAck, this, std::placeholders::_1, std::placeholders::_2));
             break;
           case AsyncMqttClientInternals::PacketType.PINGRESP:
-            _currentParsedPacket = new AsyncMqttClientInternals::PingRespPacket(&_parsingInformation);
+            _currentParsedPacket = new AsyncMqttClientInternals::PingRespPacket(&_parsingInformation, std::bind(&AsyncMqttClient::_onPingResp, this));
             break;
           case AsyncMqttClientInternals::PacketType.SUBACK:
             _currentParsedPacket = new AsyncMqttClientInternals::SubAckPacket(&_parsingInformation, std::bind(&AsyncMqttClient::_onSubAck, this, std::placeholders::_1, std::placeholders::_2));
@@ -289,7 +290,7 @@ void AsyncMqttClient::_onData(void* data, size_t len) {
         }
         break;
       case AsyncMqttClientInternals::BufferState::REMAINING_LENGTH:
-        currentByte = (static_cast<char*>(data))[currentBytePosition++];
+        currentByte = data[currentBytePosition++];
         _remainingLengthBuffer[_remainingLengthBufferPosition++] = currentByte;
         if (currentByte >> 7 == 0) {
           _parsingInformation.remainingLength = AsyncMqttClientInternals::Helpers::decodeRemainingLength(_remainingLengthBuffer);
@@ -298,10 +299,10 @@ void AsyncMqttClient::_onData(void* data, size_t len) {
         }
         break;
       case AsyncMqttClientInternals::BufferState::VARIABLE_HEADER:
-        _currentParsedPacket->parseVariableHeader(static_cast<char*>(data), &currentBytePosition);
+        _currentParsedPacket->parseVariableHeader(data, &currentBytePosition);
         break;
       case AsyncMqttClientInternals::BufferState::PAYLOAD:
-        _currentParsedPacket->parsePayload(static_cast<char*>(data), &currentBytePosition);
+        _currentParsedPacket->parsePayload(data, &currentBytePosition);
         break;
       default:
         currentBytePosition = len;
@@ -310,7 +311,14 @@ void AsyncMqttClient::_onData(void* data, size_t len) {
 }
 
 /* MQTT */
+void AsyncMqttClient::_onPingResp() {
+  _freeCurrentParsedPacket();
+}
+
 void AsyncMqttClient::_onConnAck(bool sessionPresent, uint8_t connectReturnCode) {
+  (void)sessionPresent;
+  _freeCurrentParsedPacket();
+
   if (connectReturnCode == 0) {
     _connected = true;
     _onConnectCallback();
@@ -321,28 +329,20 @@ void AsyncMqttClient::_onConnAck(bool sessionPresent, uint8_t connectReturnCode)
 }
 
 void AsyncMqttClient::_onSubAck(uint16_t packetId, char status) {
-  for (size_t i = 0; i < _pendingSubscriptions.size(); i++) {
-    if (_pendingSubscriptions[i].packetId == packetId) {
-      _pendingSubscriptions.erase(_pendingSubscriptions.begin() + i);
-      break;
-    }
-  }
+  _freeCurrentParsedPacket();
 
   _onSubscribeCallback(packetId, status);
 }
 
 void AsyncMqttClient::_onUnsubAck(uint16_t packetId) {
-  for (size_t i = 0; i < _pendingUnsubscriptions.size(); i++) {
-    if (_pendingUnsubscriptions[i].packetId == packetId) {
-      _pendingUnsubscriptions.erase(_pendingUnsubscriptions.begin() + i);
-      break;
-    }
-  }
+  _freeCurrentParsedPacket();
 
   _onUnsubscribeCallback(packetId);
 }
 
 void AsyncMqttClient::_onPublish(const char* topic, const char* payload, size_t len, uint8_t qos, uint16_t packetId) {
+  bool notifyPublish = true;
+
   if (qos == 1) {
     char fixedHeader[2];
     fixedHeader[0] = AsyncMqttClientInternals::PacketType.PUBACK;
@@ -374,21 +374,24 @@ void AsyncMqttClient::_onPublish(const char* topic, const char* payload, size_t 
 
     for (size_t i = 0; i < _pendingPubRels.size(); i++) {
       if (_pendingPubRels[i].packetId == packetId) {
-        return;
+        notifyPublish = false;
       }
     }
 
-    AsyncMqttClientInternals::PendingPubRel pendingPubRel;
-    pendingPubRel.packetId = packetId;
-    _pendingPubRels.push_back(pendingPubRel);
+    if (notifyPublish) {
+      AsyncMqttClientInternals::PendingPubRel pendingPubRel;
+      pendingPubRel.packetId = packetId;
+      _pendingPubRels.push_back(pendingPubRel);
+    }
   }
 
-  _onPublishReceivedCallback(topic, payload, len, qos);
-  delete _currentParsedPacket;
-  _currentParsedPacket = nullptr;
+  if (notifyPublish) _onPublishReceivedCallback(topic, payload, len, qos);
+  _freeCurrentParsedPacket();
 }
 
 void AsyncMqttClient::_onPubRel(uint16_t packetId) {
+  _freeCurrentParsedPacket();
+
   char fixedHeader[2];
   fixedHeader[0] = AsyncMqttClientInternals::PacketType.PUBCOMP;
   fixedHeader[0] = fixedHeader[0] << 4;
@@ -406,20 +409,20 @@ void AsyncMqttClient::_onPubRel(uint16_t packetId) {
   for (size_t i = 0; i < _pendingPubRels.size(); i++) {
     if (_pendingPubRels[i].packetId == packetId) {
       _pendingPubRels.erase(_pendingPubRels.begin() + i);
+      _pendingPubRels.shrink_to_fit();
     }
   }
 }
 
 void AsyncMqttClient::_onPubAck(uint16_t packetId) {
-  for (size_t i = 0; i < _pendingPubAcks.size(); i++) {
-    if (_pendingPubAcks[i].packetId == packetId) {
-      _onPublishAckCallback(packetId);
-      _pendingPubAcks.erase(_pendingPubAcks.begin() + i);
-    }
-  }
+  _freeCurrentParsedPacket();
+
+  _onPublishAckCallback(packetId);
 }
 
 void AsyncMqttClient::_onPubRec(uint16_t packetId) {
+  _freeCurrentParsedPacket();
+
   char fixedHeader[2];
   fixedHeader[0] = AsyncMqttClientInternals::PacketType.PUBREL;
   fixedHeader[0] = fixedHeader[0] << 4;
@@ -433,25 +436,11 @@ void AsyncMqttClient::_onPubRec(uint16_t packetId) {
   _client.add(fixedHeader, 2);
   _client.add(packetIdBytes, 2);
   _client.send();
-
-  AsyncMqttClientInternals::PendingPubComp pendingPubComp;
-  pendingPubComp.packetId = packetId;
-  for (size_t i = 0; i < _pendingPubRecs.size(); i++) {
-    if (_pendingPubRecs[i].packetId == packetId) {
-      _pendingPubRecs.erase(_pendingPubRecs.begin() + i);
-    }
-  }
-
-  _pendingPubComps.push_back(pendingPubComp);
 }
 
 void AsyncMqttClient::_onPubComp(uint16_t packetId) {
-  for (size_t i = 0; i < _pendingPubComps.size(); i++) {
-    if (_pendingPubComps[i].packetId == packetId) {
-      _onPublishAckCallback(packetId);
-      _pendingPubComps.erase(_pendingPubComps.begin() + i);
-    }
-  }
+  _freeCurrentParsedPacket();
+  _onPublishAckCallback(packetId);
 }
 
 void AsyncMqttClient::_keepAliveTick(AsyncClient* client) {
@@ -526,10 +515,6 @@ uint16_t AsyncMqttClient::subscribe(const char* topic, uint8_t qos) {
   _client.add(qosByte, 1);
   _client.send();
 
-  AsyncMqttClientInternals::PendingSubscription pendingSubscription;
-  pendingSubscription.packetId = packetId;
-  _pendingSubscriptions.push_back(pendingSubscription);
-
   return packetId;
 }
 
@@ -555,10 +540,6 @@ uint16_t AsyncMqttClient::unsubscribe(const char* topic) {
   _client.add(topicLengthBytes, 2);
   _client.add(topic, topicLength);
   _client.send();
-
-  AsyncMqttClientInternals::PendingSubscription pendingUnsubscription;
-  pendingUnsubscription.packetId = packetId;
-  _pendingUnsubscriptions.push_back(pendingUnsubscription);
 
   return packetId;
 }
@@ -606,18 +587,6 @@ uint16_t AsyncMqttClient::publish(const char* topic, uint8_t qos, bool retain, c
   if (qos != 0) _client.add(packetIdBytes, 2);
   if (payload != nullptr) _client.add(payload, payloadLength);
   _client.send();
-
-  if (qos == 1) {
-    AsyncMqttClientInternals::PendingPubAck pendingPubAck;
-    pendingPubAck.packetId = packetId;
-
-    _pendingPubAcks.push_back(pendingPubAck);
-  } else if (qos == 2) {
-    AsyncMqttClientInternals::PendingPubRec pendingPubRec;
-    pendingPubRec.packetId = packetId;
-
-    _pendingPubRecs.push_back(pendingPubRec);
-  }
 
   return packetId;
 }

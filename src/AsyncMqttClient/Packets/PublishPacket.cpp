@@ -38,7 +38,7 @@ PublishPacket::~PublishPacket() {
   delete[] _payload;
 }
 
-void PublishPacket::parseVariableHeader(char* data, size_t* currentBytePosition) {
+void PublishPacket::parseVariableHeader(const char* data, size_t* currentBytePosition) {
   char currentByte = data[(*currentBytePosition)++];
   if (_bytePosition == 0) {
     _topicLengthMsb = currentByte;
@@ -73,7 +73,7 @@ void PublishPacket::_preparePayloadHandling(uint32_t payloadLength) {
   }
 }
 
-void PublishPacket::parsePayload(char* data, size_t* currentBytePosition) {
+void PublishPacket::parsePayload(const char* data, size_t* currentBytePosition) {
   char currentByte = data[(*currentBytePosition)++];
   _payload[_payloadBytesRead++] = currentByte;
 

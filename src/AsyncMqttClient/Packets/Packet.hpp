@@ -3,10 +3,9 @@
 namespace AsyncMqttClientInternals {
 class Packet {
  public:
-  Packet() {}
   virtual ~Packet() {}
 
-  virtual void parseVariableHeader(char* data, size_t* currentBytePosition) {}
-  virtual void parsePayload(char* data, size_t* currentBytePosition) {}
+  virtual void parseVariableHeader(const char* data, size_t* currentBytePosition) = 0;
+  virtual void parsePayload(const char* data, size_t* currentBytePosition) = 0;
 };
 }  // namespace AsyncMqttClientInternals

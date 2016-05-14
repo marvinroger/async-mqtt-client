@@ -13,7 +13,7 @@ PubRelPacket::PubRelPacket(ParsingInformation* parsingInformation, OnPubRelCallb
 PubRelPacket::~PubRelPacket() {
 }
 
-void PubRelPacket::parseVariableHeader(char* data, size_t* currentBytePosition) {
+void PubRelPacket::parseVariableHeader(const char* data, size_t* currentBytePosition) {
   char currentByte = data[(*currentBytePosition)++];
   if (_bytePosition++ == 0) {
     _packetIdMsb = currentByte;
@@ -24,6 +24,7 @@ void PubRelPacket::parseVariableHeader(char* data, size_t* currentBytePosition) 
   }
 }
 
-void PubRelPacket::parsePayload(char* data, size_t* currentBytePosition) {
-  // No payload
+void PubRelPacket::parsePayload(const char* data, size_t* currentBytePosition) {
+  (void)data;
+  (void)currentBytePosition;
 }

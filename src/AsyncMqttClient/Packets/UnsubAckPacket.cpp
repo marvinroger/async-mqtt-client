@@ -13,7 +13,7 @@ UnsubAckPacket::UnsubAckPacket(ParsingInformation* parsingInformation, OnUnsubAc
 UnsubAckPacket::~UnsubAckPacket() {
 }
 
-void UnsubAckPacket::parseVariableHeader(char* data, size_t* currentBytePosition) {
+void UnsubAckPacket::parseVariableHeader(const char* data, size_t* currentBytePosition) {
   char currentByte = data[(*currentBytePosition)++];
   if (_bytePosition++ == 0) {
     _packetIdMsb = currentByte;
@@ -24,6 +24,7 @@ void UnsubAckPacket::parseVariableHeader(char* data, size_t* currentBytePosition
   }
 }
 
-void UnsubAckPacket::parsePayload(char* data, size_t* currentBytePosition) {
-  // No payload
+void UnsubAckPacket::parsePayload(const char* data, size_t* currentBytePosition) {
+  (void)data;
+  (void)currentBytePosition;
 }

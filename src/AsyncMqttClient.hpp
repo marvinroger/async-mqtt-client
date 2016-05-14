@@ -87,30 +87,28 @@ class AsyncMqttClient {
 
   uint16_t _nextPacketId;
 
-  std::vector<AsyncMqttClientInternals::PendingSubscription> _pendingSubscriptions;
-  std::vector<AsyncMqttClientInternals::PendingSubscription> _pendingUnsubscriptions;
   std::vector<AsyncMqttClientInternals::PendingPubRel> _pendingPubRels;
-  std::vector<AsyncMqttClientInternals::PendingPubAck> _pendingPubAcks;
-  std::vector<AsyncMqttClientInternals::PendingPubRec> _pendingPubRecs;
-  std::vector<AsyncMqttClientInternals::PendingPubComp> _pendingPubComps;
 
   void _clear();
+  void _freeCurrentParsedPacket();
 
   // TCP
   void _onConnect(AsyncClient* client);
   void _onDisconnect(AsyncClient* client);
   void _onError(AsyncClient* client, int8_t error);
-  void _onTimeout(AsyncClient* client);
-  void _onAck(AsyncClient* client, size_t len);
-  void _onData(void* data, size_t len);
+  void _onTimeout(AsyncClient* client, uint32_t time);
+  void _onAck(AsyncClient* client, size_t len, uint32_t time);
+  void _onData(AsyncClient* client, const char* data, size_t len);
 
   // MQTT
+  void _onPingResp();
   void _onConnAck(bool sessionPresent, uint8_t connectReturnCode);
   void _onSubAck(uint16_t packetId, char status);
   void _onUnsubAck(uint16_t packetId);
   void _onPublish(const char* topic, const char* payload, size_t len, uint8_t qos, uint16_t packetId);
   void _onPubRel(uint16_t packetId);
-  void _onPubAck(uint16_t packetId);    void _onPubRec(uint16_t packetId);
+  void _onPubAck(uint16_t packetId);
+  void _onPubRec(uint16_t packetId);
   void _onPubComp(uint16_t packetId);
 
   static void _keepAliveTick(AsyncClient* client);
