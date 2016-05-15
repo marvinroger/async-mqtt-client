@@ -1,7 +1,7 @@
 Async MQTT client for ESP8266
 =============================
 
-An Arduino for ESP8266 asynchronous [MQTT](http://mqtt.org/) client implementation.
+An Arduino for ESP8266 asynchronous [MQTT](http://mqtt.org/) client implementation, built on [me-no-dev/ESPAsyncTCP](https://github.com/me-no-dev/ESPAsyncTCP).
 
 ## Features
 
