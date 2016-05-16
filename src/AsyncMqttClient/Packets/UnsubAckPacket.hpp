@@ -11,8 +11,8 @@ class UnsubAckPacket : public Packet {
   explicit UnsubAckPacket(ParsingInformation* parsingInformation, OnUnsubAckCallback callback);
   ~UnsubAckPacket();
 
-  void parseVariableHeader(const char* data, size_t* currentBytePosition);
-  void parsePayload(const char* data, size_t* currentBytePosition);
+  void parseVariableHeader(const char* data, size_t len, size_t* currentBytePosition);
+  void parsePayload(const char* data, size_t len, size_t* currentBytePosition);
 
  private:
   ParsingInformation* _parsingInformation;

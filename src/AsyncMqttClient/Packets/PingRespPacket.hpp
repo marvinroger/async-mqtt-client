@@ -11,8 +11,8 @@ class PingRespPacket : public Packet {
   explicit PingRespPacket(ParsingInformation* parsingInformation, OnPingRespCallback callback);
   ~PingRespPacket();
 
-  void parseVariableHeader(const char* data, size_t* currentBytePosition);
-  void parsePayload(const char* data, size_t* currentBytePosition);
+  void parseVariableHeader(const char* data, size_t len, size_t* currentBytePosition);
+  void parsePayload(const char* data, size_t len, size_t* currentBytePosition);
 
  private:
   ParsingInformation* _parsingInformation;

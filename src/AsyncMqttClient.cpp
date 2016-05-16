@@ -22,7 +22,7 @@ AsyncMqttClient::AsyncMqttClient()
   _onDisconnectCallback = [](AsyncMqttClientDisconnectReason reason) { (void)reason; };
   _onSubscribeCallback = [](uint16_t packetId, uint8_t qos) { (void)packetId; (void)qos; };
   _onUnsubscribeCallback = [](uint16_t packetId) { (void)packetId; };
-  _onPublishReceivedCallback = [](const char* topic, const char* payload, size_t len, uint8_t qos) { (void)topic; (void)payload; (void)len; (void)qos; };
+  _onPublishReceivedCallback = [](const char* topic, const char* payload, uint8_t qos, size_t len, size_t index, size_t total) { (void)topic; (void)payload; (void)len; (void)qos; };
   _onPublishAckCallback = [](uint16_t packetId) { (void)packetId; };
 }
 
@@ -274,7 +274,7 @@ void AsyncMqttClient::_onData(AsyncClient* client, const char* data, size_t len)
             _currentParsedPacket = new AsyncMqttClientInternals::UnsubAckPacket(&_parsingInformation, std::bind(&AsyncMqttClient::_onUnsubAck, this, std::placeholders::_1));
             break;
           case AsyncMqttClientInternals::PacketType.PUBLISH:
-            _currentParsedPacket = new AsyncMqttClientInternals::PublishPacket(&_parsingInformation, std::bind(&AsyncMqttClient::_onPublish, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5));
+            _currentParsedPacket = new AsyncMqttClientInternals::PublishPacket(&_parsingInformation, std::bind(&AsyncMqttClient::_onPublishData, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5, std::placeholders::_6, std::placeholders::_7), std::bind(&AsyncMqttClient::_onPublishComplete, this, std::placeholders::_1, std::placeholders::_2));
             break;
           case AsyncMqttClientInternals::PacketType.PUBREL:
             _currentParsedPacket = new AsyncMqttClientInternals::PubRelPacket(&_parsingInformation, std::bind(&AsyncMqttClient::_onPubRel, this, std::placeholders::_1));
@@ -302,10 +302,10 @@ void AsyncMqttClient::_onData(AsyncClient* client, const char* data, size_t len)
         }
         break;
       case AsyncMqttClientInternals::BufferState::VARIABLE_HEADER:
-        _currentParsedPacket->parseVariableHeader(data, &currentBytePosition);
+        _currentParsedPacket->parseVariableHeader(data, len, &currentBytePosition);
         break;
       case AsyncMqttClientInternals::BufferState::PAYLOAD:
-        _currentParsedPacket->parsePayload(data, &currentBytePosition);
+        _currentParsedPacket->parsePayload(data, len, &currentBytePosition);
         break;
       default:
         currentBytePosition = len;
@@ -343,9 +343,22 @@ void AsyncMqttClient::_onUnsubAck(uint16_t packetId) {
   _onUnsubscribeCallback(packetId);
 }
 
-void AsyncMqttClient::_onPublish(const char* topic, const char* payload, size_t len, uint8_t qos, uint16_t packetId) {
+void AsyncMqttClient::_onPublishData(const char* topic, const char* payload, uint8_t qos, size_t len, size_t index, size_t total, uint16_t packetId) {
   bool notifyPublish = true;
 
+  if (qos == 2) {
+    for (size_t i = 0; i < _pendingPubRels.size(); i++) {
+      if (_pendingPubRels[i].packetId == packetId) {
+        notifyPublish = false;
+      }
+    }
+  }
+
+  if (notifyPublish) _onPublishReceivedCallback(topic, payload, qos, len, index, total);
+}
+
+void AsyncMqttClient::_onPublishComplete(uint16_t packetId, uint8_t qos) {
+  Serial.println("Publish complete?");
   if (qos == 1) {
     char fixedHeader[2];
     fixedHeader[0] = AsyncMqttClientInternals::PacketType.PUBACK;
@@ -375,20 +388,20 @@ void AsyncMqttClient::_onPublish(const char* topic, const char* payload, size_t 
     _client.add(packetIdBytes, 2);
     _client.send();
 
+    bool pubRelAwaiting = false;
     for (size_t i = 0; i < _pendingPubRels.size(); i++) {
       if (_pendingPubRels[i].packetId == packetId) {
-        notifyPublish = false;
+        pubRelAwaiting = true;
       }
     }
 
-    if (notifyPublish) {
+    if (!pubRelAwaiting) {
       AsyncMqttClientInternals::PendingPubRel pendingPubRel;
       pendingPubRel.packetId = packetId;
       _pendingPubRels.push_back(pendingPubRel);
     }
   }
 
-  if (notifyPublish) _onPublishReceivedCallback(topic, payload, len, qos);
   _freeCurrentParsedPacket();
 }
 

@@ -2,9 +2,10 @@
 
 using AsyncMqttClientInternals::PublishPacket;
 
-PublishPacket::PublishPacket(ParsingInformation* parsingInformation, OnPublishInternalCallback callback)
+PublishPacket::PublishPacket(ParsingInformation* parsingInformation, OnPublishDataInternalCallback dataCallback, OnPublishCompleteInternalCallback completeCallback)
 : _parsingInformation(parsingInformation)
-, _callback(callback)
+, _dataCallback(dataCallback)
+, _completeCallback(completeCallback)
 , _dup(false)
 , _qos(0)
 , _retain(0)
@@ -15,7 +16,6 @@ PublishPacket::PublishPacket(ParsingInformation* parsingInformation, OnPublishIn
 , _packetIdMsb(0)
 , _packetId(0)
 , _payloadLength(0)
-, _payload(nullptr)
 , _payloadBytesRead(0) {
     _dup = _parsingInformation->packetFlags & HeaderFlag.PUBLISH_DUP;
     _retain = _parsingInformation->packetFlags & HeaderFlag.PUBLISH_RETAIN;
@@ -35,10 +35,9 @@ PublishPacket::PublishPacket(ParsingInformation* parsingInformation, OnPublishIn
 
 PublishPacket::~PublishPacket() {
   delete[] _topic;
-  delete[] _payload;
 }
 
-void PublishPacket::parseVariableHeader(const char* data, size_t* currentBytePosition) {
+void PublishPacket::parseVariableHeader(const char* data, size_t len, size_t* currentBytePosition) {
   char currentByte = data[(*currentBytePosition)++];
   if (_bytePosition == 0) {
     _topicLengthMsb = currentByte;
@@ -63,22 +62,25 @@ void PublishPacket::parseVariableHeader(const char* data, size_t* currentBytePos
 
 void PublishPacket::_preparePayloadHandling(uint32_t payloadLength) {
   _payloadLength = payloadLength;
-  _payload = new char[_payloadLength + 1];
-  _payload[_payloadLength + 1 - 1] = '\0';
   if (payloadLength == 0) {
     _parsingInformation->bufferState = BufferState::NONE;
-    _callback(_topic, _payload, _payloadLength, _qos, _packetId);
+    _dataCallback(_topic, nullptr, _qos, 0, 0, 0, _packetId);
+    _completeCallback(_packetId, _qos);
   } else {
     _parsingInformation->bufferState = BufferState::PAYLOAD;
   }
 }
 
-void PublishPacket::parsePayload(const char* data, size_t* currentBytePosition) {
-  char currentByte = data[(*currentBytePosition)++];
-  _payload[_payloadBytesRead++] = currentByte;
+void PublishPacket::parsePayload(const char* data, size_t len, size_t* currentBytePosition) {
+  size_t remainToRead = len - (*currentBytePosition);
+  if (_payloadBytesRead + remainToRead > _payloadLength) remainToRead = _payloadLength - _payloadBytesRead;
+
+  _dataCallback(_topic, data + (*currentBytePosition), _qos, remainToRead, _payloadBytesRead, _payloadLength, _packetId);
+  _payloadBytesRead += remainToRead;
+  (*currentBytePosition) += remainToRead;
 
   if (_payloadBytesRead == _payloadLength) {
     _parsingInformation->bufferState = BufferState::NONE;
-    _callback(_topic, _payload, _payloadLength, _qos, _packetId);
+    _completeCallback(_packetId, _qos);
   }
 }

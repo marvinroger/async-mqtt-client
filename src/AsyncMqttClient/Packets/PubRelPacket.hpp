@@ -11,8 +11,8 @@ class PubRelPacket : public Packet {
   explicit PubRelPacket(ParsingInformation* parsingInformation, OnPubRelCallback callback);
   ~PubRelPacket();
 
-  void parseVariableHeader(const char* data, size_t* currentBytePosition);
-  void parsePayload(const char* data, size_t* currentBytePosition);
+  void parseVariableHeader(const char* data, size_t len, size_t* currentBytePosition);
+  void parsePayload(const char* data, size_t len, size_t* currentBytePosition);
 
  private:
   ParsingInformation* _parsingInformation;

@@ -11,8 +11,8 @@ class ConnAckPacket : public Packet {
   explicit ConnAckPacket(ParsingInformation* parsingInformation, OnConnAckCallback callback);
   ~ConnAckPacket();
 
-  void parseVariableHeader(const char* data, size_t* currentBytePosition);
-  void parsePayload(const char* data, size_t* currentBytePosition);
+  void parseVariableHeader(const char* data, size_t len, size_t* currentBytePosition);
+  void parsePayload(const char* data, size_t len, size_t* currentBytePosition);
 
  private:
   ParsingInformation* _parsingInformation;

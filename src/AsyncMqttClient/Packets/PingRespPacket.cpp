@@ -10,14 +10,14 @@ PingRespPacket::PingRespPacket(ParsingInformation* parsingInformation, OnPingRes
 PingRespPacket::~PingRespPacket() {
 }
 
-void PingRespPacket::parseVariableHeader(const char* data, size_t* currentBytePosition) {
+void PingRespPacket::parseVariableHeader(const char* data, size_t len, size_t* currentBytePosition) {
   (void)data;
   (void)currentBytePosition;
   _parsingInformation->bufferState = BufferState::NONE;
   _callback();
 }
 
-void PingRespPacket::parsePayload(const char* data, size_t* currentBytePosition) {
+void PingRespPacket::parsePayload(const char* data, size_t len, size_t* currentBytePosition) {
   (void)data;
   (void)currentBytePosition;
 }
