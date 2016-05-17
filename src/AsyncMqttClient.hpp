@@ -4,7 +4,6 @@
 #include <vector>
 
 #include "Arduino.h"
-#include <Ticker.h>
 
 #include <ESPAsyncTCP.h>
 
@@ -54,9 +53,9 @@ class AsyncMqttClient {
 
  private:
   AsyncClient _client;
-  Ticker _keepAliveTicker;
 
   bool _connected;
+  uint32_t _lastActivity;
 
   char _generatedClientId[13 + 1];  // esp8266abc123
   IPAddress _ip;
@@ -99,6 +98,7 @@ class AsyncMqttClient {
   void _onTimeout(AsyncClient* client, uint32_t time);
   void _onAck(AsyncClient* client, size_t len, uint32_t time);
   void _onData(AsyncClient* client, const char* data, size_t len);
+  void _onPoll(AsyncClient* client);
 
   // MQTT
   void _onPingResp();
@@ -112,7 +112,7 @@ class AsyncMqttClient {
   void _onPubRec(uint16_t packetId);
   void _onPubComp(uint16_t packetId);
 
-  static void _keepAliveTick(AsyncClient* client);
+  void _sendPing();
 
   uint16_t _getNextPacketId();
 };
