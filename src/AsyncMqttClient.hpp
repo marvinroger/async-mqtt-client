@@ -44,7 +44,7 @@ class AsyncMqttClient {
   AsyncMqttClient& onPublish(AsyncMqttClientInternals::OnPublishCallback callback);
   AsyncMqttClient& onPublishAck(AsyncMqttClientInternals::OnPublishAckCallback callback);
 
-  bool connected();
+  bool connected() const;
   void connect();
   void disconnect();
   uint16_t subscribe(const char* topic, uint8_t qos);
@@ -94,9 +94,9 @@ class AsyncMqttClient {
   // TCP
   void _onConnect(AsyncClient* client);
   void _onDisconnect(AsyncClient* client);
-  void _onError(AsyncClient* client, int8_t error);
+  static void _onError(AsyncClient* client, int8_t error);
   void _onTimeout(AsyncClient* client, uint32_t time);
-  void _onAck(AsyncClient* client, size_t len, uint32_t time);
+  static void _onAck(AsyncClient* client, size_t len, uint32_t time);
   void _onData(AsyncClient* client, const char* data, size_t len);
   void _onPoll(AsyncClient* client);
 

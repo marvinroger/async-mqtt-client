@@ -1,8 +1,23 @@
 #include "AsyncMqttClient.hpp"
 
 AsyncMqttClient::AsyncMqttClient()
-: _keepAlive(15)
+: _connected(false)
+, _lastActivity(0)
+, _host(nullptr)
+, _useIp(false)
+, _port(0)
+, _keepAlive(15)
+, _clientId(nullptr)
+, _username(nullptr)
+, _password(nullptr)
+, _willTopic(nullptr)
 , _willPayload(nullptr)
+, _willPayloadLength(0)
+, _willQos(0)
+, _willRetain(false)
+, _parsingInformation { .bufferState = AsyncMqttClientInternals::BufferState::NONE }
+, _currentParsedPacket(nullptr)
+, _remainingLengthBufferPosition(0)
 , _nextPacketId(1) {
   _client.onConnect([](void* obj, AsyncClient* c) { (static_cast<AsyncMqttClient*>(obj))->_onConnect(c); }, this);
   _client.onDisconnect([](void* obj, AsyncClient* c) { (static_cast<AsyncMqttClient*>(obj))->_onDisconnect(c); }, this);
@@ -12,12 +27,7 @@ AsyncMqttClient::AsyncMqttClient()
   _client.onData([](void* obj, AsyncClient* c, void* data, size_t len) { (static_cast<AsyncMqttClient*>(obj))->_onData(c, static_cast<char*>(data), len); }, this);
   _client.onPoll([](void* obj, AsyncClient* c) { (static_cast<AsyncMqttClient*>(obj))->_onPoll(c); }, this);
 
-  _parsingInformation.bufferState = AsyncMqttClientInternals::BufferState::NONE;
-  _lastActivity = millis();
-
-  char flashChipId[6 + 1];
-  snprintf(flashChipId, 6 + 1, "%06x", ESP.getFlashChipId());
-  snprintf(_generatedClientId, 13 + 1, "%s%s", "esp8266", flashChipId);
+  sprintf(_generatedClientId, "esp8266%06x", ESP.getFlashChipId());
   _clientId = _generatedClientId;
 
   _onConnectCallback = []() { };
@@ -491,7 +501,7 @@ uint16_t AsyncMqttClient::_getNextPacketId() {
   return nextPacketId;
 }
 
-bool AsyncMqttClient::connected() {
+bool AsyncMqttClient::connected() const {
   return _connected;
 }
 
