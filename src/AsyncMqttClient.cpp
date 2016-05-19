@@ -117,7 +117,6 @@ void AsyncMqttClient::_freeCurrentParsedPacket() {
 }
 
 void AsyncMqttClient::_clear() {
-  _client.close(true);
   _connected = false;
   _freeCurrentParsedPacket();
   _pendingPubRels.clear();
@@ -375,7 +374,6 @@ void AsyncMqttClient::_onPublishData(const char* topic, const char* payload, uin
 }
 
 void AsyncMqttClient::_onPublishComplete(uint16_t packetId, uint8_t qos) {
-  Serial.println("Publish complete?");
   if (qos == 1) {
     char fixedHeader[2];
     fixedHeader[0] = AsyncMqttClientInternals::PacketType.PUBACK;

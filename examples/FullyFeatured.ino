@@ -1,0 +1,90 @@
+#include <ESP8266WiFi.h>
+#include <AsyncMqttClient.h>
+
+AsyncMqttClient mqttClient;
+
+void onMqttConnect() {
+  Serial.println("== Connected");
+  uint16_t packetIdSub = mqttClient.subscribe("test/lol", 2);
+  Serial.print("Subscribing, packetId: ");
+  Serial.println(packetIdSub);
+  mqttClient.publish("test/lol", 0, true, "test 1");
+  Serial.println("Publishing at QoS 0");
+  uint16_t packetIdPub1 = mqttClient.publish("test/lol", 1, true, "test 2");
+  Serial.print("Publishing at QoS 1, packetId: ");
+  Serial.println(packetIdPub1);
+  uint16_t packetIdPub2 = mqttClient.publish("test/lol", 2, true, "test 3");
+  Serial.print("Publishing at QoS 2, packetId: ");
+  Serial.println(packetIdPub2);
+}
+
+void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
+  Serial.println("== Disconnected: ");
+  Serial.println("Reconnecting to MQTT...");
+  mqttClient.connect();
+}
+
+void onMqttSubscribeAck(uint16_t packetId, uint8_t qos) {
+  Serial.println("== Subscribe acknowledged");
+  Serial.print("  packetId: ");
+  Serial.println(packetId);
+  Serial.print("  qos: ");
+  Serial.println(qos);
+}
+
+void onMqttUnsubscribeAck(uint16_t packetId) {
+  Serial.println("== Unsubscribe acknowledged");
+  Serial.print("  packetId: ");
+  Serial.println(packetId);
+}
+
+void onMqttPublish(const char* topic, const char* payload, uint8_t qos, size_t len, size_t index, size_t total) {
+  Serial.println("== Publish received");
+  Serial.print("  topic: ");
+  Serial.println(topic);
+  Serial.print("  qos: ");
+  Serial.println(qos);
+  Serial.print("  len: ");
+  Serial.println(len);
+  Serial.print("  index: ");
+  Serial.println(index);
+  Serial.print("  total: ");
+  Serial.println(total);
+}
+
+void onMqttPublishAck(uint16_t packetId) {
+  Serial.println("== Publish acknowledged");
+  Serial.print("  packetId: ");
+  Serial.println(packetId);
+}
+
+void setup() {
+  Serial.begin(115200);
+  Serial.println();
+  Serial.println();
+  WiFi.persistent(false);
+  WiFi.mode(WIFI_STA);
+  Serial.print("Connecting to Wi-Fi");
+  WiFi.begin("WiFi_SSID", "Wi-Fi password");
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println(" OK");
+
+  mqttClient.onConnect(onMqttConnect);
+  mqttClient.onDisconnect(onMqttDisconnect);
+  mqttClient.onSubscribeAck(onMqttSubscribeAck);
+  mqttClient.onUnsubscribeAck(onMqttUnsubscribeAck);
+  mqttClient.onPublish(onMqttPublish);
+  mqttClient.onPublishAck(onMqttPublishAck);
+  mqttClient.setServer(IPAddress(192, 168, 1, 20), 1883);
+  mqttClient.setKeepAlive(5).setWill("topic/online", 2, true, "no").setCredentials("username", "password").setClientId("myDevice");
+  Serial.println("Connecting to MQTT...");
+  mqttClient.connect();
+}
+
+void loop() {
+}
