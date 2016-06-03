@@ -9,7 +9,7 @@
 namespace AsyncMqttClientInternals {
 class PublishPacket : public Packet {
  public:
-  explicit PublishPacket(ParsingInformation* parsingInformation, OnPublishDataInternalCallback dataCallback, OnPublishCompleteInternalCallback completeCallback);
+  explicit PublishPacket(ParsingInformation* parsingInformation, OnMessageInternalCallback dataCallback, OnPublishInternalCallback completeCallback);
   ~PublishPacket();
 
   void parseVariableHeader(const char* data, size_t len, size_t* currentBytePosition);
@@ -17,8 +17,8 @@ class PublishPacket : public Packet {
 
  private:
   ParsingInformation* _parsingInformation;
-  OnPublishDataInternalCallback _dataCallback;
-  OnPublishCompleteInternalCallback _completeCallback;
+  OnMessageInternalCallback _dataCallback;
+  OnPublishInternalCallback _completeCallback;
 
   void _preparePayloadHandling(uint32_t payloadLength);
 

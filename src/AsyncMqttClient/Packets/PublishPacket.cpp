@@ -2,7 +2,7 @@
 
 using AsyncMqttClientInternals::PublishPacket;
 
-PublishPacket::PublishPacket(ParsingInformation* parsingInformation, OnPublishDataInternalCallback dataCallback, OnPublishCompleteInternalCallback completeCallback)
+PublishPacket::PublishPacket(ParsingInformation* parsingInformation, OnMessageInternalCallback dataCallback, OnPublishInternalCallback completeCallback)
 : _parsingInformation(parsingInformation)
 , _dataCallback(dataCallback)
 , _completeCallback(completeCallback)

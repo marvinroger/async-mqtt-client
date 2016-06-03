@@ -4,9 +4,9 @@
 AsyncMqttClient mqttClient;
 
 void onMqttConnect() {
-  Serial.println("== Connected");
+  Serial.println("** Connected to the broker **");
   uint16_t packetIdSub = mqttClient.subscribe("test/lol", 2);
-  Serial.print("Subscribing, packetId: ");
+  Serial.print("Subscribing at QoS 2, packetId: ");
   Serial.println(packetIdSub);
   mqttClient.publish("test/lol", 0, true, "test 1");
   Serial.println("Publishing at QoS 0");
@@ -19,27 +19,27 @@ void onMqttConnect() {
 }
 
 void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
-  Serial.println("== Disconnected: ");
+  Serial.println("** Disconnected from the broker **");
   Serial.println("Reconnecting to MQTT...");
   mqttClient.connect();
 }
 
-void onMqttSubscribeAck(uint16_t packetId, uint8_t qos) {
-  Serial.println("== Subscribe acknowledged");
+void onMqttSubscribe(uint16_t packetId, uint8_t qos) {
+  Serial.println("** Subscribe acknowledged **");
   Serial.print("  packetId: ");
   Serial.println(packetId);
   Serial.print("  qos: ");
   Serial.println(qos);
 }
 
-void onMqttUnsubscribeAck(uint16_t packetId) {
-  Serial.println("== Unsubscribe acknowledged");
+void onMqttUnsubscribe(uint16_t packetId) {
+  Serial.println("** Unsubscribe acknowledged **");
   Serial.print("  packetId: ");
   Serial.println(packetId);
 }
 
-void onMqttPublish(const char* topic, const char* payload, uint8_t qos, size_t len, size_t index, size_t total) {
-  Serial.println("== Publish received");
+void onMqttMessage(const char* topic, const char* payload, uint8_t qos, size_t len, size_t index, size_t total) {
+  Serial.println("** Publish received **");
   Serial.print("  topic: ");
   Serial.println(topic);
   Serial.print("  qos: ");
@@ -52,8 +52,8 @@ void onMqttPublish(const char* topic, const char* payload, uint8_t qos, size_t l
   Serial.println(total);
 }
 
-void onMqttPublishAck(uint16_t packetId) {
-  Serial.println("== Publish acknowledged");
+void onMqttPublish(uint16_t packetId) {
+  Serial.println("** Publish acknowledged **");
   Serial.print("  packetId: ");
   Serial.println(packetId);
 }
@@ -76,10 +76,10 @@ void setup() {
 
   mqttClient.onConnect(onMqttConnect);
   mqttClient.onDisconnect(onMqttDisconnect);
-  mqttClient.onSubscribeAck(onMqttSubscribeAck);
-  mqttClient.onUnsubscribeAck(onMqttUnsubscribeAck);
+  mqttClient.onSubscribe(onMqttSubscribe);
+  mqttClient.onUnsubscribe(onMqttUnsubscribe);
+  mqttClient.onMessage(onMqttMessage);
   mqttClient.onPublish(onMqttPublish);
-  mqttClient.onPublishAck(onMqttPublishAck);
   mqttClient.setServer(IPAddress(192, 168, 1, 20), 1883);
   mqttClient.setKeepAlive(5).setWill("topic/online", 2, true, "no").setCredentials("username", "password").setClientId("myDevice");
   Serial.println("Connecting to MQTT...");

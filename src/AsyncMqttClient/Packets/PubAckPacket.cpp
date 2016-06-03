@@ -2,7 +2,7 @@
 
 using AsyncMqttClientInternals::PubAckPacket;
 
-PubAckPacket::PubAckPacket(ParsingInformation* parsingInformation, OnPubAckCallback callback)
+PubAckPacket::PubAckPacket(ParsingInformation* parsingInformation, OnPubAckInternalCallback callback)
 : _parsingInformation(parsingInformation)
 , _callback(callback)
 , _bytePosition(0)

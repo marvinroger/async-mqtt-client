@@ -11,10 +11,6 @@ An Arduino for ESP8266 asynchronous [MQTT](http://mqtt.org/) client implementati
 * Publish at QoS 0, 1 and 2
 * Available in the [PlatformIO registry](http://platformio.org/#!/lib/show/)
 
-## Limitations
-
-* Clean session set to 1
-
 ## Requirements, installation and usage
 
 The project is documented in the [/docs folder](docs).

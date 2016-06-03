@@ -8,7 +8,7 @@
 namespace AsyncMqttClientInternals {
 class SubAckPacket : public Packet {
  public:
-  explicit SubAckPacket(ParsingInformation* parsingInformation, OnSubAckCallback callback);
+  explicit SubAckPacket(ParsingInformation* parsingInformation, OnSubAckInternalCallback callback);
   ~SubAckPacket();
 
   void parseVariableHeader(const char* data, size_t len, size_t* currentBytePosition);
@@ -16,7 +16,7 @@ class SubAckPacket : public Packet {
 
  private:
   ParsingInformation* _parsingInformation;
-  OnSubAckCallback _callback;
+  OnSubAckInternalCallback _callback;
 
   uint8_t _bytePosition;
   char _packetIdMsb;

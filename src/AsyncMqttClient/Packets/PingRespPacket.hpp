@@ -8,7 +8,7 @@
 namespace AsyncMqttClientInternals {
 class PingRespPacket : public Packet {
  public:
-  explicit PingRespPacket(ParsingInformation* parsingInformation, OnPingRespCallback callback);
+  explicit PingRespPacket(ParsingInformation* parsingInformation, OnPingRespInternalCallback callback);
   ~PingRespPacket();
 
   void parseVariableHeader(const char* data, size_t len, size_t* currentBytePosition);
@@ -16,6 +16,6 @@ class PingRespPacket : public Packet {
 
  private:
   ParsingInformation* _parsingInformation;
-  OnPingRespCallback _callback;
+  OnPingRespInternalCallback _callback;
 };
 }  // namespace AsyncMqttClientInternals

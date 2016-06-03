@@ -8,7 +8,7 @@
 namespace AsyncMqttClientInternals {
 class ConnAckPacket : public Packet {
  public:
-  explicit ConnAckPacket(ParsingInformation* parsingInformation, OnConnAckCallback callback);
+  explicit ConnAckPacket(ParsingInformation* parsingInformation, OnConnAckInternalCallback callback);
   ~ConnAckPacket();
 
   void parseVariableHeader(const char* data, size_t len, size_t* currentBytePosition);
@@ -16,7 +16,7 @@ class ConnAckPacket : public Packet {
 
  private:
   ParsingInformation* _parsingInformation;
-  OnConnAckCallback _callback;
+  OnConnAckInternalCallback _callback;
 
   uint8_t _bytePosition;
   bool _sessionPresent;

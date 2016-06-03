@@ -2,7 +2,7 @@
 
 using AsyncMqttClientInternals::SubAckPacket;
 
-SubAckPacket::SubAckPacket(ParsingInformation* parsingInformation, OnSubAckCallback callback)
+SubAckPacket::SubAckPacket(ParsingInformation* parsingInformation, OnSubAckInternalCallback callback)
 : _parsingInformation(parsingInformation)
 , _callback(callback)
 , _bytePosition(0)

@@ -2,7 +2,7 @@
 
 using AsyncMqttClientInternals::ConnAckPacket;
 
-ConnAckPacket::ConnAckPacket(ParsingInformation* parsingInformation, OnConnAckCallback callback)
+ConnAckPacket::ConnAckPacket(ParsingInformation* parsingInformation, OnConnAckInternalCallback callback)
 : _parsingInformation(parsingInformation)
 , _callback(callback)
 , _bytePosition(0)

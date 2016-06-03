@@ -17,10 +17,10 @@ setServer	KEYWORD2
 
 onConnect	KEYWORD2
 onDisconnect	KEYWORD2
-onSubscribeAck	KEYWORD2
-onUnsubscribeAck	KEYWORD2
+onSubscribe	KEYWORD2
+onUnsubscribe	KEYWORD2
 onPublish	KEYWORD2
-onPublishAck	KEYWORD2
+onPublish	KEYWORD2
 
 connected	KEYWORD2
 connect	KEYWORD2

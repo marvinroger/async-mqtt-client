@@ -5,21 +5,23 @@
 #include "DisconnectReasons.hpp"
 
 namespace AsyncMqttClientInternals {
-typedef std::function<void()> OnConnectCallback;
-typedef std::function<void(AsyncMqttClientDisconnectReason reason)> OnDisconnectCallback;
-typedef std::function<void(uint16_t packetId, uint8_t qos)> OnSubscribeCallback;
-typedef std::function<void(uint16_t packetId)> OnUnsubscribeCallback;
-typedef std::function<void(const char* topic, const char* payload, uint8_t qos, size_t len, size_t index, size_t total)> OnPublishCallback;
-typedef std::function<void(uint16_t packetId)> OnPublishAckCallback;
+// user callbacks
+typedef std::function<void()> OnConnectUserCallback;
+typedef std::function<void(AsyncMqttClientDisconnectReason reason)> OnDisconnectUserCallback;
+typedef std::function<void(uint16_t packetId, uint8_t qos)> OnSubscribeUserCallback;
+typedef std::function<void(uint16_t packetId)> OnUnsubscribeUserCallback;
+typedef std::function<void(const char* topic, const char* payload, uint8_t qos, size_t len, size_t index, size_t total)> OnMessageUserCallback;
+typedef std::function<void(uint16_t packetId)> OnPublishUserCallback;
 
-typedef std::function<void(bool sessionPresent, uint8_t connectReturnCode)> OnConnAckCallback;
-typedef std::function<void()> OnPingRespCallback;
-typedef std::function<void(uint16_t packetId, char status)> OnSubAckCallback;
-typedef std::function<void(uint16_t packetId)> OnUnsubAckCallback;
-typedef std::function<void(const char* topic, const char* payload, uint8_t qos, size_t len, size_t index, size_t total, uint16_t packetId)> OnPublishDataInternalCallback;
-typedef std::function<void(uint16_t packetId, uint8_t qos)> OnPublishCompleteInternalCallback;
-typedef std::function<void(uint16_t packetId)> OnPubRelCallback;
-typedef std::function<void(uint16_t packetId)> OnPubAckCallback;
-typedef std::function<void(uint16_t packetId)> OnPubRecCallback;
-typedef std::function<void(uint16_t packetId)> OnPubCompCallback;
+// internal callbacks
+typedef std::function<void(bool sessionPresent, uint8_t connectReturnCode)> OnConnAckInternalCallback;
+typedef std::function<void()> OnPingRespInternalCallback;
+typedef std::function<void(uint16_t packetId, char status)> OnSubAckInternalCallback;
+typedef std::function<void(uint16_t packetId)> OnUnsubAckInternalCallback;
+typedef std::function<void(const char* topic, const char* payload, uint8_t qos, size_t len, size_t index, size_t total, uint16_t packetId)> OnMessageInternalCallback;
+typedef std::function<void(uint16_t packetId, uint8_t qos)> OnPublishInternalCallback;
+typedef std::function<void(uint16_t packetId)> OnPubRelInternalCallback;
+typedef std::function<void(uint16_t packetId)> OnPubAckInternalCallback;
+typedef std::function<void(uint16_t packetId)> OnPubRecInternalCallback;
+typedef std::function<void(uint16_t packetId)> OnPubCompInternalCallback;
 }  // namespace AsyncMqttClientInternals

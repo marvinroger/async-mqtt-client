@@ -1,6 +1,6 @@
 Welcome to the AsyncMqttClient for ESP8266 docs.
 
-**<p align="center">This documentation is valid for AsyncMqttClient <u>v0.1.0</u></p>**
+**<p align="center">This documentation is valid for AsyncMqttClient <u>v0.2.0</u></p>**
 
 -----
 

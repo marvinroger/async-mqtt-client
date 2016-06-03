@@ -2,7 +2,7 @@
 
 using AsyncMqttClientInternals::PingRespPacket;
 
-PingRespPacket::PingRespPacket(ParsingInformation* parsingInformation, OnPingRespCallback callback)
+PingRespPacket::PingRespPacket(ParsingInformation* parsingInformation, OnPingRespInternalCallback callback)
 : _parsingInformation(parsingInformation)
 , _callback(callback) {
 }

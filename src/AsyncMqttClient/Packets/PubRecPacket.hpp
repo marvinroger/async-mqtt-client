@@ -8,7 +8,7 @@
 namespace AsyncMqttClientInternals {
 class PubRecPacket : public Packet {
  public:
-  explicit PubRecPacket(ParsingInformation* parsingInformation, OnPubRecCallback callback);
+  explicit PubRecPacket(ParsingInformation* parsingInformation, OnPubRecInternalCallback callback);
   ~PubRecPacket();
 
   void parseVariableHeader(const char* data, size_t len, size_t* currentBytePosition);
@@ -16,7 +16,7 @@ class PubRecPacket : public Packet {
 
  private:
   ParsingInformation* _parsingInformation;
-  OnPubRecCallback _callback;
+  OnPubRecInternalCallback _callback;
 
   uint8_t _bytePosition;
   char _packetIdMsb;

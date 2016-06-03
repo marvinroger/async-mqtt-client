@@ -30,12 +30,12 @@ AsyncMqttClient::AsyncMqttClient()
   sprintf(_generatedClientId, "esp8266%06x", ESP.getFlashChipId());
   _clientId = _generatedClientId;
 
-  _onConnectCallback = []() { };
-  _onDisconnectCallback = [](AsyncMqttClientDisconnectReason reason) { (void)reason; };
-  _onSubscribeCallback = [](uint16_t packetId, uint8_t qos) { (void)packetId; (void)qos; };
-  _onUnsubscribeCallback = [](uint16_t packetId) { (void)packetId; };
-  _onPublishReceivedCallback = [](const char* topic, const char* payload, uint8_t qos, size_t len, size_t index, size_t total) { (void)topic; (void)payload; (void)len; (void)qos; };
-  _onPublishAckCallback = [](uint16_t packetId) { (void)packetId; };
+  _onConnectUserCallback = []() { };
+  _onDisconnectUserCallback = [](AsyncMqttClientDisconnectReason reason) { (void)reason; };
+  _onSubscribeUserCallback = [](uint16_t packetId, uint8_t qos) { (void)packetId; (void)qos; };
+  _onUnsubscribeUserCallback = [](uint16_t packetId) { (void)packetId; };
+  _onMessageUserCallback = [](const char* topic, const char* payload, uint8_t qos, size_t len, size_t index, size_t total) { (void)topic; (void)payload; (void)len; (void)qos; };
+  _onPublishUserCallback = [](uint16_t packetId) { (void)packetId; };
 }
 
 AsyncMqttClient::~AsyncMqttClient() {
@@ -81,33 +81,33 @@ AsyncMqttClient& AsyncMqttClient::setServer(const char* host, uint16_t port) {
   return *this;
 }
 
-AsyncMqttClient& AsyncMqttClient::onConnect(AsyncMqttClientInternals::OnConnectCallback callback) {
-  _onConnectCallback = callback;
+AsyncMqttClient& AsyncMqttClient::onConnect(AsyncMqttClientInternals::OnConnectUserCallback callback) {
+  _onConnectUserCallback = callback;
   return *this;
 }
 
-AsyncMqttClient& AsyncMqttClient::onDisconnect(AsyncMqttClientInternals::OnDisconnectCallback callback) {
-  _onDisconnectCallback = callback;
+AsyncMqttClient& AsyncMqttClient::onDisconnect(AsyncMqttClientInternals::OnDisconnectUserCallback callback) {
+  _onDisconnectUserCallback = callback;
   return *this;
 }
 
-AsyncMqttClient& AsyncMqttClient::onSubscribeAck(AsyncMqttClientInternals::OnSubscribeCallback callback) {
-  _onSubscribeCallback = callback;
+AsyncMqttClient& AsyncMqttClient::onSubscribe(AsyncMqttClientInternals::OnSubscribeUserCallback callback) {
+  _onSubscribeUserCallback = callback;
   return *this;
 }
 
-AsyncMqttClient& AsyncMqttClient::onUnsubscribeAck(AsyncMqttClientInternals::OnUnsubscribeCallback callback) {
-  _onUnsubscribeCallback = callback;
+AsyncMqttClient& AsyncMqttClient::onUnsubscribe(AsyncMqttClientInternals::OnUnsubscribeUserCallback callback) {
+  _onUnsubscribeUserCallback = callback;
   return *this;
 }
 
-AsyncMqttClient& AsyncMqttClient::onPublish(AsyncMqttClientInternals::OnPublishCallback callback) {
-  _onPublishReceivedCallback = callback;
+AsyncMqttClient& AsyncMqttClient::onMessage(AsyncMqttClientInternals::OnMessageUserCallback callback) {
+  _onMessageUserCallback = callback;
   return *this;
 }
 
-AsyncMqttClient& AsyncMqttClient::onPublishAck(AsyncMqttClientInternals::OnPublishAckCallback callback) {
-  _onPublishAckCallback = callback;
+AsyncMqttClient& AsyncMqttClient::onPublish(AsyncMqttClientInternals::OnPublishUserCallback callback) {
+  _onPublishUserCallback = callback;
   return *this;
 }
 
@@ -238,7 +238,7 @@ void AsyncMqttClient::_onConnect(AsyncClient* client) {
 void AsyncMqttClient::_onDisconnect(AsyncClient* client) {
   (void)client;
   _clear();
-  _onDisconnectCallback(AsyncMqttClientDisconnectReason::TCP_DISCONNECTED);
+  _onDisconnectUserCallback(AsyncMqttClientDisconnectReason::TCP_DISCONNECTED);
 }
 
 void AsyncMqttClient::_onError(AsyncClient* client, int8_t error) {
@@ -284,7 +284,7 @@ void AsyncMqttClient::_onData(AsyncClient* client, const char* data, size_t len)
             _currentParsedPacket = new AsyncMqttClientInternals::UnsubAckPacket(&_parsingInformation, std::bind(&AsyncMqttClient::_onUnsubAck, this, std::placeholders::_1));
             break;
           case AsyncMqttClientInternals::PacketType.PUBLISH:
-            _currentParsedPacket = new AsyncMqttClientInternals::PublishPacket(&_parsingInformation, std::bind(&AsyncMqttClient::_onPublishData, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5, std::placeholders::_6, std::placeholders::_7), std::bind(&AsyncMqttClient::_onPublishComplete, this, std::placeholders::_1, std::placeholders::_2));
+            _currentParsedPacket = new AsyncMqttClientInternals::PublishPacket(&_parsingInformation, std::bind(&AsyncMqttClient::_onMessage, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5, std::placeholders::_6, std::placeholders::_7), std::bind(&AsyncMqttClient::_onPublish, this, std::placeholders::_1, std::placeholders::_2));
             break;
           case AsyncMqttClientInternals::PacketType.PUBREL:
             _currentParsedPacket = new AsyncMqttClientInternals::PubRelPacket(&_parsingInformation, std::bind(&AsyncMqttClient::_onPubRel, this, std::placeholders::_1));
@@ -340,26 +340,26 @@ void AsyncMqttClient::_onConnAck(bool sessionPresent, uint8_t connectReturnCode)
 
   if (connectReturnCode == 0) {
     _connected = true;
-    _onConnectCallback();
+    _onConnectUserCallback();
   } else {
     _clear();
-    _onDisconnectCallback(static_cast<AsyncMqttClientDisconnectReason>(connectReturnCode));
+    _onDisconnectUserCallback(static_cast<AsyncMqttClientDisconnectReason>(connectReturnCode));
   }
 }
 
 void AsyncMqttClient::_onSubAck(uint16_t packetId, char status) {
   _freeCurrentParsedPacket();
 
-  _onSubscribeCallback(packetId, status);
+  _onSubscribeUserCallback(packetId, status);
 }
 
 void AsyncMqttClient::_onUnsubAck(uint16_t packetId) {
   _freeCurrentParsedPacket();
 
-  _onUnsubscribeCallback(packetId);
+  _onUnsubscribeUserCallback(packetId);
 }
 
-void AsyncMqttClient::_onPublishData(const char* topic, const char* payload, uint8_t qos, size_t len, size_t index, size_t total, uint16_t packetId) {
+void AsyncMqttClient::_onMessage(const char* topic, const char* payload, uint8_t qos, size_t len, size_t index, size_t total, uint16_t packetId) {
   bool notifyPublish = true;
 
   if (qos == 2) {
@@ -370,10 +370,10 @@ void AsyncMqttClient::_onPublishData(const char* topic, const char* payload, uin
     }
   }
 
-  if (notifyPublish) _onPublishReceivedCallback(topic, payload, qos, len, index, total);
+  if (notifyPublish) _onMessageUserCallback(topic, payload, qos, len, index, total);
 }
 
-void AsyncMqttClient::_onPublishComplete(uint16_t packetId, uint8_t qos) {
+void AsyncMqttClient::_onPublish(uint16_t packetId, uint8_t qos) {
   if (qos == 1) {
     char fixedHeader[2];
     fixedHeader[0] = AsyncMqttClientInternals::PacketType.PUBACK;
@@ -451,7 +451,7 @@ void AsyncMqttClient::_onPubRel(uint16_t packetId) {
 void AsyncMqttClient::_onPubAck(uint16_t packetId) {
   _freeCurrentParsedPacket();
 
-  _onPublishAckCallback(packetId);
+  _onPublishUserCallback(packetId);
 }
 
 void AsyncMqttClient::_onPubRec(uint16_t packetId) {
@@ -475,7 +475,7 @@ void AsyncMqttClient::_onPubRec(uint16_t packetId) {
 
 void AsyncMqttClient::_onPubComp(uint16_t packetId) {
   _freeCurrentParsedPacket();
-  _onPublishAckCallback(packetId);
+  _onPublishUserCallback(packetId);
 }
 
 void AsyncMqttClient::_sendPing() {

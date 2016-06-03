@@ -8,7 +8,7 @@
 namespace AsyncMqttClientInternals {
 class PubCompPacket : public Packet {
  public:
-  explicit PubCompPacket(ParsingInformation* parsingInformation, OnPubCompCallback callback);
+  explicit PubCompPacket(ParsingInformation* parsingInformation, OnPubCompInternalCallback callback);
   ~PubCompPacket();
 
   void parseVariableHeader(const char* data, size_t len, size_t* currentBytePosition);
@@ -16,7 +16,7 @@ class PubCompPacket : public Packet {
 
  private:
   ParsingInformation* _parsingInformation;
-  OnPubCompCallback _callback;
+  OnPubCompInternalCallback _callback;
 
   uint8_t _bytePosition;
   char _packetIdMsb;

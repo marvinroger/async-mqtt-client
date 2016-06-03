@@ -2,7 +2,7 @@
 
 using AsyncMqttClientInternals::PubCompPacket;
 
-PubCompPacket::PubCompPacket(ParsingInformation* parsingInformation, OnPubCompCallback callback)
+PubCompPacket::PubCompPacket(ParsingInformation* parsingInformation, OnPubCompInternalCallback callback)
 : _parsingInformation(parsingInformation)
 , _callback(callback)
 , _bytePosition(0)

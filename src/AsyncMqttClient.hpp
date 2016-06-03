@@ -37,12 +37,12 @@ class AsyncMqttClient {
   AsyncMqttClient& setServer(IPAddress ip, uint16_t port);
   AsyncMqttClient& setServer(const char* host, uint16_t port);
 
-  AsyncMqttClient& onConnect(AsyncMqttClientInternals::OnConnectCallback callback);
-  AsyncMqttClient& onDisconnect(AsyncMqttClientInternals::OnDisconnectCallback callback);
-  AsyncMqttClient& onSubscribeAck(AsyncMqttClientInternals::OnSubscribeCallback callback);
-  AsyncMqttClient& onUnsubscribeAck(AsyncMqttClientInternals::OnUnsubscribeCallback callback);
-  AsyncMqttClient& onPublish(AsyncMqttClientInternals::OnPublishCallback callback);
-  AsyncMqttClient& onPublishAck(AsyncMqttClientInternals::OnPublishAckCallback callback);
+  AsyncMqttClient& onConnect(AsyncMqttClientInternals::OnConnectUserCallback callback);
+  AsyncMqttClient& onDisconnect(AsyncMqttClientInternals::OnDisconnectUserCallback callback);
+  AsyncMqttClient& onSubscribe(AsyncMqttClientInternals::OnSubscribeUserCallback callback);
+  AsyncMqttClient& onUnsubscribe(AsyncMqttClientInternals::OnUnsubscribeUserCallback callback);
+  AsyncMqttClient& onMessage(AsyncMqttClientInternals::OnMessageUserCallback callback);
+  AsyncMqttClient& onPublish(AsyncMqttClientInternals::OnPublishUserCallback callback);
 
   bool connected() const;
   void connect();
@@ -72,12 +72,12 @@ class AsyncMqttClient {
   uint8_t _willQos;
   bool _willRetain;
 
-  AsyncMqttClientInternals::OnConnectCallback _onConnectCallback;
-  AsyncMqttClientInternals::OnDisconnectCallback _onDisconnectCallback;
-  AsyncMqttClientInternals::OnSubscribeCallback _onSubscribeCallback;
-  AsyncMqttClientInternals::OnUnsubscribeCallback _onUnsubscribeCallback;
-  AsyncMqttClientInternals::OnPublishCallback _onPublishReceivedCallback;
-  AsyncMqttClientInternals::OnPublishAckCallback _onPublishAckCallback;
+  AsyncMqttClientInternals::OnConnectUserCallback _onConnectUserCallback;
+  AsyncMqttClientInternals::OnDisconnectUserCallback _onDisconnectUserCallback;
+  AsyncMqttClientInternals::OnSubscribeUserCallback _onSubscribeUserCallback;
+  AsyncMqttClientInternals::OnUnsubscribeUserCallback _onUnsubscribeUserCallback;
+  AsyncMqttClientInternals::OnMessageUserCallback _onMessageUserCallback;
+  AsyncMqttClientInternals::OnPublishUserCallback _onPublishUserCallback;
 
   AsyncMqttClientInternals::ParsingInformation _parsingInformation;
   AsyncMqttClientInternals::Packet* _currentParsedPacket;
@@ -105,8 +105,8 @@ class AsyncMqttClient {
   void _onConnAck(bool sessionPresent, uint8_t connectReturnCode);
   void _onSubAck(uint16_t packetId, char status);
   void _onUnsubAck(uint16_t packetId);
-  void _onPublishData(const char* topic, const char* payload, uint8_t qos, size_t len, size_t index, size_t total, uint16_t packetId);
-  void _onPublishComplete(uint16_t packetId, uint8_t qos);
+  void _onMessage(const char* topic, const char* payload, uint8_t qos, size_t len, size_t index, size_t total, uint16_t packetId);
+  void _onPublish(uint16_t packetId, uint8_t qos);
   void _onPubRel(uint16_t packetId);
   void _onPubAck(uint16_t packetId);
   void _onPubRec(uint16_t packetId);
