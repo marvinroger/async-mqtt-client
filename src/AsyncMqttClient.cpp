@@ -259,7 +259,7 @@ void AsyncMqttClient::_onAck(AsyncClient* client, size_t len, uint32_t time) {
   (void)time;
 }
 
-void AsyncMqttClient::_onData(AsyncClient* client, const char* data, size_t len) {
+void AsyncMqttClient::_onData(AsyncClient* client, char* data, size_t len) {
   (void)client;
   size_t currentBytePosition = 0;
   char currentByte;
@@ -359,7 +359,7 @@ void AsyncMqttClient::_onUnsubAck(uint16_t packetId) {
   _onUnsubscribeUserCallback(packetId);
 }
 
-void AsyncMqttClient::_onMessage(const char* topic, const char* payload, uint8_t qos, size_t len, size_t index, size_t total, uint16_t packetId) {
+void AsyncMqttClient::_onMessage(char* topic, char* payload, uint8_t qos, size_t len, size_t index, size_t total, uint16_t packetId) {
   bool notifyPublish = true;
 
   if (qos == 2) {

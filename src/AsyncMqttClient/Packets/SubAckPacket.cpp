@@ -13,7 +13,7 @@ SubAckPacket::SubAckPacket(ParsingInformation* parsingInformation, OnSubAckInter
 SubAckPacket::~SubAckPacket() {
 }
 
-void SubAckPacket::parseVariableHeader(const char* data, size_t len, size_t* currentBytePosition) {
+void SubAckPacket::parseVariableHeader(char* data, size_t len, size_t* currentBytePosition) {
   char currentByte = data[(*currentBytePosition)++];
   if (_bytePosition++ == 0) {
     _packetIdMsb = currentByte;
@@ -23,7 +23,7 @@ void SubAckPacket::parseVariableHeader(const char* data, size_t len, size_t* cur
   }
 }
 
-void SubAckPacket::parsePayload(const char* data, size_t len, size_t* currentBytePosition) {
+void SubAckPacket::parsePayload(char* data, size_t len, size_t* currentBytePosition) {
   char status = data[(*currentBytePosition)++];
 
   /* switch (status) {

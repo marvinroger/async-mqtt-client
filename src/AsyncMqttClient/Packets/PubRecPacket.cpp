@@ -13,7 +13,7 @@ PubRecPacket::PubRecPacket(ParsingInformation* parsingInformation, OnPubRecInter
 PubRecPacket::~PubRecPacket() {
 }
 
-void PubRecPacket::parseVariableHeader(const char* data, size_t len, size_t* currentBytePosition) {
+void PubRecPacket::parseVariableHeader(char* data, size_t len, size_t* currentBytePosition) {
   char currentByte = data[(*currentBytePosition)++];
   if (_bytePosition++ == 0) {
     _packetIdMsb = currentByte;
@@ -24,7 +24,7 @@ void PubRecPacket::parseVariableHeader(const char* data, size_t len, size_t* cur
   }
 }
 
-void PubRecPacket::parsePayload(const char* data, size_t len, size_t* currentBytePosition) {
+void PubRecPacket::parsePayload(char* data, size_t len, size_t* currentBytePosition) {
   (void)data;
   (void)currentBytePosition;
 }

@@ -12,8 +12,8 @@ class PublishPacket : public Packet {
   explicit PublishPacket(ParsingInformation* parsingInformation, OnMessageInternalCallback dataCallback, OnPublishInternalCallback completeCallback);
   ~PublishPacket();
 
-  void parseVariableHeader(const char* data, size_t len, size_t* currentBytePosition);
-  void parsePayload(const char* data, size_t len, size_t* currentBytePosition);
+  void parseVariableHeader(char* data, size_t len, size_t* currentBytePosition);
+  void parsePayload(char* data, size_t len, size_t* currentBytePosition);
 
  private:
   ParsingInformation* _parsingInformation;

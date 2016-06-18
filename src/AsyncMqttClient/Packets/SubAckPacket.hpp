@@ -11,8 +11,8 @@ class SubAckPacket : public Packet {
   explicit SubAckPacket(ParsingInformation* parsingInformation, OnSubAckInternalCallback callback);
   ~SubAckPacket();
 
-  void parseVariableHeader(const char* data, size_t len, size_t* currentBytePosition);
-  void parsePayload(const char* data, size_t len, size_t* currentBytePosition);
+  void parseVariableHeader(char* data, size_t len, size_t* currentBytePosition);
+  void parsePayload(char* data, size_t len, size_t* currentBytePosition);
 
  private:
   ParsingInformation* _parsingInformation;

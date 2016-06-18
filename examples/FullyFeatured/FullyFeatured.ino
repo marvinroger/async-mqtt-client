@@ -38,7 +38,7 @@ void onMqttUnsubscribe(uint16_t packetId) {
   Serial.println(packetId);
 }
 
-void onMqttMessage(const char* topic, const char* payload, uint8_t qos, size_t len, size_t index, size_t total) {
+void onMqttMessage(char* topic, char* payload, uint8_t qos, size_t len, size_t index, size_t total) {
   Serial.println("** Publish received **");
   Serial.print("  topic: ");
   Serial.println(topic);
