@@ -363,9 +363,10 @@ void AsyncMqttClient::_onMessage(char* topic, char* payload, uint8_t qos, size_t
   bool notifyPublish = true;
 
   if (qos == 2) {
-    for (size_t i = 0; i < _pendingPubRels.size(); i++) {
-      if (_pendingPubRels[i].packetId == packetId) {
+    for (AsyncMqttClientInternals::PendingPubRel pendingPubRel :_pendingPubRels) {
+      if (pendingPubRel.packetId == packetId) {
         notifyPublish = false;
+        break;
       }
     }
   }
@@ -406,9 +407,10 @@ void AsyncMqttClient::_onPublish(uint16_t packetId, uint8_t qos) {
     _lastActivity = millis();
 
     bool pubRelAwaiting = false;
-    for (size_t i = 0; i < _pendingPubRels.size(); i++) {
-      if (_pendingPubRels[i].packetId == packetId) {
+    for (AsyncMqttClientInternals::PendingPubRel pendingPubRel :_pendingPubRels) {
+      if (pendingPubRel.packetId == packetId) {
         pubRelAwaiting = true;
+        break;
       }
     }
 
