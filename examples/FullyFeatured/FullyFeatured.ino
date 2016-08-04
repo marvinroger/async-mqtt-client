@@ -20,8 +20,6 @@ void onMqttConnect() {
 
 void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
   Serial.println("** Disconnected from the broker **");
-  Serial.println("Reconnecting to MQTT...");
-  mqttClient.connect();
 }
 
 void onMqttSubscribe(uint16_t packetId, uint8_t qos) {
@@ -87,4 +85,8 @@ void setup() {
 }
 
 void loop() {
+  if (!mqttClient.connected()) {
+    Serial.println("** Reconnecting to MQTT in loop() **");
+    mqttClient.connect();
+  }
 }
