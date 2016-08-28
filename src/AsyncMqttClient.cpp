@@ -363,7 +363,7 @@ void AsyncMqttClient::_onMessage(char* topic, char* payload, uint8_t qos, bool d
   bool notifyPublish = true;
 
   if (qos == 2) {
-    for (AsyncMqttClientInternals::PendingPubRel pendingPubRel :_pendingPubRels) {
+    for (AsyncMqttClientInternals::PendingPubRel pendingPubRel : _pendingPubRels) {
       if (pendingPubRel.packetId == packetId) {
         notifyPublish = false;
         break;
@@ -413,7 +413,7 @@ void AsyncMqttClient::_onPublish(uint16_t packetId, uint8_t qos) {
     _lastActivity = millis();
 
     bool pubRelAwaiting = false;
-    for (AsyncMqttClientInternals::PendingPubRel pendingPubRel :_pendingPubRels) {
+    for (AsyncMqttClientInternals::PendingPubRel pendingPubRel : _pendingPubRels) {
       if (pendingPubRel.packetId == packetId) {
         pubRelAwaiting = true;
         break;
@@ -512,7 +512,7 @@ bool AsyncMqttClient::connected() const {
 }
 
 void AsyncMqttClient::connect() {
-  if(_connected) return;
+  if (_connected) return;
 
   if (_useIp) {
     _client.connect(_ip, _port);
@@ -522,7 +522,7 @@ void AsyncMqttClient::connect() {
 }
 
 void AsyncMqttClient::disconnect() {
-  if(!_connected) return;
+  if (!_connected) return;
 
   char fixedHeader[2];
   fixedHeader[0] = AsyncMqttClientInternals::PacketType.DISCONNECT;
@@ -536,7 +536,7 @@ void AsyncMqttClient::disconnect() {
 }
 
 uint16_t AsyncMqttClient::subscribe(const char* topic, uint8_t qos) {
-  if(!_connected) return 0;
+  if (!_connected) return 0;
 
   char fixedHeader[5];
   fixedHeader[0] = AsyncMqttClientInternals::PacketType.SUBSCRIBE;
@@ -569,7 +569,7 @@ uint16_t AsyncMqttClient::subscribe(const char* topic, uint8_t qos) {
 }
 
 uint16_t AsyncMqttClient::unsubscribe(const char* topic) {
-  if(!_connected) return 0;
+  if (!_connected) return 0;
 
   char fixedHeader[5];
   fixedHeader[0] = AsyncMqttClientInternals::PacketType.UNSUBSCRIBE;
@@ -598,7 +598,7 @@ uint16_t AsyncMqttClient::unsubscribe(const char* topic) {
 }
 
 uint16_t AsyncMqttClient::publish(const char* topic, uint8_t qos, bool retain, const char* payload, size_t length) {
-  if(!_connected) return 0;
+  if (!_connected) return 0;
 
   char fixedHeader[5];
   fixedHeader[0] = AsyncMqttClientInternals::PacketType.PUBLISH;

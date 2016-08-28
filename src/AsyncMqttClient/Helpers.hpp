@@ -1,3 +1,5 @@
+#pragma once
+
 namespace AsyncMqttClientInternals {
 class Helpers {
  public:

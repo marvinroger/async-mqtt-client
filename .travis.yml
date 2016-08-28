@@ -1,0 +1,19 @@
+language: python
+python:
+  - "2.7"
+
+cache:
+  directories:
+    - "~/.platformio"
+
+env:
+  - PLATFORMIO_CI_SRC=examples/FullyFeatured
+  - CPPLINT=true
+
+install:
+  - pip install -U platformio
+  - pip install cpplint
+  - platformio lib install 305  # ESPAsyncTCP
+
+script:
+  - if [[ "$CPPLINT" ]]; then make cpplint; else platformio ci --lib="." --board=esp01 --board=nodemcuv2; fi
