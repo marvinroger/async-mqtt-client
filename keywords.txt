@@ -4,6 +4,7 @@
 
 AsyncMqttClient	KEYWORD1
 AsyncMqttClientDisconnectReason	KEYWORD1
+AsyncMqttClientMessageProperties	KEYWORD1
 
 #######################################
 # Methods and Functions (KEYWORD2)

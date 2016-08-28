@@ -64,7 +64,7 @@ void PublishPacket::_preparePayloadHandling(uint32_t payloadLength) {
   _payloadLength = payloadLength;
   if (payloadLength == 0) {
     _parsingInformation->bufferState = BufferState::NONE;
-    _dataCallback(_topic, nullptr, _qos, 0, 0, 0, _packetId);
+    _dataCallback(_topic, nullptr, _qos, _dup, _retain, 0, 0, 0, _packetId);
     _completeCallback(_packetId, _qos);
   } else {
     _parsingInformation->bufferState = BufferState::PAYLOAD;
@@ -75,7 +75,7 @@ void PublishPacket::parsePayload(char* data, size_t len, size_t* currentBytePosi
   size_t remainToRead = len - (*currentBytePosition);
   if (_payloadBytesRead + remainToRead > _payloadLength) remainToRead = _payloadLength - _payloadBytesRead;
 
-  _dataCallback(_topic, data + (*currentBytePosition), _qos, remainToRead, _payloadBytesRead, _payloadLength, _packetId);
+  _dataCallback(_topic, data + (*currentBytePosition), _qos, _dup, _retain, remainToRead, _payloadBytesRead, _payloadLength, _packetId);
   _payloadBytesRead += remainToRead;
   (*currentBytePosition) += remainToRead;
 

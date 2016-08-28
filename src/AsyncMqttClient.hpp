@@ -9,6 +9,7 @@
 
 #include "AsyncMqttClient/Flags.hpp"
 #include "AsyncMqttClient/ParsingInformation.hpp"
+#include "AsyncMqttClient/MessageProperties.hpp"
 #include "AsyncMqttClient/Helpers.hpp"
 #include "AsyncMqttClient/Callbacks.hpp"
 #include "AsyncMqttClient/DisconnectReasons.hpp"
@@ -105,7 +106,7 @@ class AsyncMqttClient {
   void _onConnAck(bool sessionPresent, uint8_t connectReturnCode);
   void _onSubAck(uint16_t packetId, char status);
   void _onUnsubAck(uint16_t packetId);
-  void _onMessage(char* topic, char* payload, uint8_t qos, size_t len, size_t index, size_t total, uint16_t packetId);
+  void _onMessage(char* topic, char* payload, uint8_t qos, bool dup, bool retain, size_t len, size_t index, size_t total, uint16_t packetId);
   void _onPublish(uint16_t packetId, uint8_t qos);
   void _onPubRel(uint16_t packetId);
   void _onPubAck(uint16_t packetId);

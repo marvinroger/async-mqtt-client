@@ -34,7 +34,7 @@ AsyncMqttClient::AsyncMqttClient()
   _onDisconnectUserCallback = [](AsyncMqttClientDisconnectReason reason) { (void)reason; };
   _onSubscribeUserCallback = [](uint16_t packetId, uint8_t qos) { (void)packetId; (void)qos; };
   _onUnsubscribeUserCallback = [](uint16_t packetId) { (void)packetId; };
-  _onMessageUserCallback = [](const char* topic, const char* payload, uint8_t qos, size_t len, size_t index, size_t total) { (void)topic; (void)payload; (void)len; (void)qos; };
+  _onMessageUserCallback = [](const char* topic, const char* payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total) { (void)topic; (void)payload; (void)len; (void)properties; };
   _onPublishUserCallback = [](uint16_t packetId) { (void)packetId; };
 }
 
@@ -284,7 +284,7 @@ void AsyncMqttClient::_onData(AsyncClient* client, char* data, size_t len) {
             _currentParsedPacket = new AsyncMqttClientInternals::UnsubAckPacket(&_parsingInformation, std::bind(&AsyncMqttClient::_onUnsubAck, this, std::placeholders::_1));
             break;
           case AsyncMqttClientInternals::PacketType.PUBLISH:
-            _currentParsedPacket = new AsyncMqttClientInternals::PublishPacket(&_parsingInformation, std::bind(&AsyncMqttClient::_onMessage, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5, std::placeholders::_6, std::placeholders::_7), std::bind(&AsyncMqttClient::_onPublish, this, std::placeholders::_1, std::placeholders::_2));
+            _currentParsedPacket = new AsyncMqttClientInternals::PublishPacket(&_parsingInformation, std::bind(&AsyncMqttClient::_onMessage, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5, std::placeholders::_6, std::placeholders::_7, std::placeholders::_8, std::placeholders::_9), std::bind(&AsyncMqttClient::_onPublish, this, std::placeholders::_1, std::placeholders::_2));
             break;
           case AsyncMqttClientInternals::PacketType.PUBREL:
             _currentParsedPacket = new AsyncMqttClientInternals::PubRelPacket(&_parsingInformation, std::bind(&AsyncMqttClient::_onPubRel, this, std::placeholders::_1));
@@ -359,7 +359,7 @@ void AsyncMqttClient::_onUnsubAck(uint16_t packetId) {
   _onUnsubscribeUserCallback(packetId);
 }
 
-void AsyncMqttClient::_onMessage(char* topic, char* payload, uint8_t qos, size_t len, size_t index, size_t total, uint16_t packetId) {
+void AsyncMqttClient::_onMessage(char* topic, char* payload, uint8_t qos, bool dup, bool retain, size_t len, size_t index, size_t total, uint16_t packetId) {
   bool notifyPublish = true;
 
   if (qos == 2) {
@@ -371,7 +371,13 @@ void AsyncMqttClient::_onMessage(char* topic, char* payload, uint8_t qos, size_t
     }
   }
 
-  if (notifyPublish) _onMessageUserCallback(topic, payload, qos, len, index, total);
+  if (notifyPublish) {
+    AsyncMqttClientMessageProperties properties;
+    properties.qos = qos;
+    properties.dup = dup;
+    properties.retain = retain;
+    _onMessageUserCallback(topic, payload, properties, len, index, total);
+  }
 }
 
 void AsyncMqttClient::_onPublish(uint16_t packetId, uint8_t qos) {
