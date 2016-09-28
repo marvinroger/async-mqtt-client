@@ -13,7 +13,7 @@ env:
 install:
   - pip install -U platformio
   - pip install cpplint
-  - platformio lib install 305  # ESPAsyncTCP
+  - platformio lib -g install file://.
 
 script:
-  - if [[ "$CPPLINT" ]]; then make cpplint; else platformio ci --lib="." --board=esp01 --board=nodemcuv2; fi
+  - if [[ "$CPPLINT" ]]; then make cpplint; else platformio ci --board=esp01 --board=nodemcuv2; fi

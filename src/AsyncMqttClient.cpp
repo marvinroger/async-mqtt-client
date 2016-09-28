@@ -7,6 +7,7 @@ AsyncMqttClient::AsyncMqttClient()
 , _useIp(false)
 , _port(0)
 , _keepAlive(15)
+, _cleanSession(true)
 , _clientId(nullptr)
 , _username(nullptr)
 , _password(nullptr)
@@ -49,6 +50,11 @@ AsyncMqttClient& AsyncMqttClient::setKeepAlive(uint16_t keepAlive) {
 
 AsyncMqttClient& AsyncMqttClient::setClientId(const char* clientId) {
   _clientId = clientId;
+  return *this;
+}
+
+AsyncMqttClient& AsyncMqttClient::setCleanSession(bool cleanSession) {
+  _cleanSession = cleanSession;
   return *this;
 }
 
@@ -143,7 +149,7 @@ void AsyncMqttClient::_onConnect(AsyncClient* client) {
   protocolLevel[0] = 0x04;
 
   char connectFlags[1];
-  connectFlags[0] = AsyncMqttClientInternals::ConnectFlag.CLEAN_SESSION;
+  if (_cleanSession) connectFlags[0] = AsyncMqttClientInternals::ConnectFlag.CLEAN_SESSION;
   if (_username != nullptr) connectFlags[0] |= AsyncMqttClientInternals::ConnectFlag.USERNAME;
   if (_password != nullptr) connectFlags[0] |= AsyncMqttClientInternals::ConnectFlag.PASSWORD;
   if (_willTopic != nullptr) {
