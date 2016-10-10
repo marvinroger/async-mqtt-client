@@ -32,13 +32,6 @@ AsyncMqttClient::AsyncMqttClient()
   _clientId = _generatedClientId;
 
   setMaxTopicLength(128);
-
-  _onConnectUserCallback = []() { };
-  _onDisconnectUserCallback = [](AsyncMqttClientDisconnectReason reason) { (void)reason; };
-  _onSubscribeUserCallback = [](uint16_t packetId, uint8_t qos) { (void)packetId; (void)qos; };
-  _onUnsubscribeUserCallback = [](uint16_t packetId) { (void)packetId; };
-  _onMessageUserCallback = [](const char* topic, const char* payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total) { (void)topic; (void)payload; (void)len; (void)properties; };
-  _onPublishUserCallback = [](uint16_t packetId) { (void)packetId; };
 }
 
 AsyncMqttClient::~AsyncMqttClient() {
@@ -98,32 +91,32 @@ AsyncMqttClient& AsyncMqttClient::setServer(const char* host, uint16_t port) {
 }
 
 AsyncMqttClient& AsyncMqttClient::onConnect(AsyncMqttClientInternals::OnConnectUserCallback callback) {
-  _onConnectUserCallback = callback;
+  _onConnectUserCallbacks.push_back(callback);
   return *this;
 }
 
 AsyncMqttClient& AsyncMqttClient::onDisconnect(AsyncMqttClientInternals::OnDisconnectUserCallback callback) {
-  _onDisconnectUserCallback = callback;
+  _onDisconnectUserCallbacks.push_back(callback);
   return *this;
 }
 
 AsyncMqttClient& AsyncMqttClient::onSubscribe(AsyncMqttClientInternals::OnSubscribeUserCallback callback) {
-  _onSubscribeUserCallback = callback;
+  _onSubscribeUserCallbacks.push_back(callback);
   return *this;
 }
 
 AsyncMqttClient& AsyncMqttClient::onUnsubscribe(AsyncMqttClientInternals::OnUnsubscribeUserCallback callback) {
-  _onUnsubscribeUserCallback = callback;
+  _onUnsubscribeUserCallbacks.push_back(callback);
   return *this;
 }
 
 AsyncMqttClient& AsyncMqttClient::onMessage(AsyncMqttClientInternals::OnMessageUserCallback callback) {
-  _onMessageUserCallback = callback;
+  _onMessageUserCallbacks.push_back(callback);
   return *this;
 }
 
 AsyncMqttClient& AsyncMqttClient::onPublish(AsyncMqttClientInternals::OnPublishUserCallback callback) {
-  _onPublishUserCallback = callback;
+  _onPublishUserCallbacks.push_back(callback);
   return *this;
 }
 
@@ -254,7 +247,7 @@ void AsyncMqttClient::_onConnect(AsyncClient* client) {
 void AsyncMqttClient::_onDisconnect(AsyncClient* client) {
   (void)client;
   _clear();
-  _onDisconnectUserCallback(AsyncMqttClientDisconnectReason::TCP_DISCONNECTED);
+  for (auto callback : _onDisconnectUserCallbacks) callback(AsyncMqttClientDisconnectReason::TCP_DISCONNECTED);
 }
 
 void AsyncMqttClient::_onError(AsyncClient* client, int8_t error) {
@@ -356,23 +349,23 @@ void AsyncMqttClient::_onConnAck(bool sessionPresent, uint8_t connectReturnCode)
 
   if (connectReturnCode == 0) {
     _connected = true;
-    _onConnectUserCallback();
+    for (auto callback : _onConnectUserCallbacks) callback();
   } else {
     _clear();
-    _onDisconnectUserCallback(static_cast<AsyncMqttClientDisconnectReason>(connectReturnCode));
+    for (auto callback : _onDisconnectUserCallbacks) callback(static_cast<AsyncMqttClientDisconnectReason>(connectReturnCode));
   }
 }
 
 void AsyncMqttClient::_onSubAck(uint16_t packetId, char status) {
   _freeCurrentParsedPacket();
 
-  _onSubscribeUserCallback(packetId, status);
+  for (auto callback : _onSubscribeUserCallbacks) callback(packetId, status);
 }
 
 void AsyncMqttClient::_onUnsubAck(uint16_t packetId) {
   _freeCurrentParsedPacket();
 
-  _onUnsubscribeUserCallback(packetId);
+  for (auto callback : _onUnsubscribeUserCallbacks) callback(packetId);
 }
 
 void AsyncMqttClient::_onMessage(char* topic, char* payload, uint8_t qos, bool dup, bool retain, size_t len, size_t index, size_t total, uint16_t packetId) {
@@ -392,7 +385,8 @@ void AsyncMqttClient::_onMessage(char* topic, char* payload, uint8_t qos, bool d
     properties.qos = qos;
     properties.dup = dup;
     properties.retain = retain;
-    _onMessageUserCallback(topic, payload, properties, len, index, total);
+
+    for (auto callback : _onMessageUserCallbacks) callback(topic, payload, properties, len, index, total);
   }
 }
 
@@ -475,7 +469,7 @@ void AsyncMqttClient::_onPubRel(uint16_t packetId) {
 void AsyncMqttClient::_onPubAck(uint16_t packetId) {
   _freeCurrentParsedPacket();
 
-  _onPublishUserCallback(packetId);
+  for (auto callback : _onPublishUserCallbacks) callback(packetId);
 }
 
 void AsyncMqttClient::_onPubRec(uint16_t packetId) {
@@ -499,7 +493,8 @@ void AsyncMqttClient::_onPubRec(uint16_t packetId) {
 
 void AsyncMqttClient::_onPubComp(uint16_t packetId) {
   _freeCurrentParsedPacket();
-  _onPublishUserCallback(packetId);
+
+  for (auto callback : _onPublishUserCallbacks) callback(packetId);
 }
 
 void AsyncMqttClient::_sendPing() {

@@ -76,12 +76,12 @@ class AsyncMqttClient {
   uint8_t _willQos;
   bool _willRetain;
 
-  AsyncMqttClientInternals::OnConnectUserCallback _onConnectUserCallback;
-  AsyncMqttClientInternals::OnDisconnectUserCallback _onDisconnectUserCallback;
-  AsyncMqttClientInternals::OnSubscribeUserCallback _onSubscribeUserCallback;
-  AsyncMqttClientInternals::OnUnsubscribeUserCallback _onUnsubscribeUserCallback;
-  AsyncMqttClientInternals::OnMessageUserCallback _onMessageUserCallback;
-  AsyncMqttClientInternals::OnPublishUserCallback _onPublishUserCallback;
+  std::vector<AsyncMqttClientInternals::OnConnectUserCallback> _onConnectUserCallbacks;
+  std::vector<AsyncMqttClientInternals::OnDisconnectUserCallback> _onDisconnectUserCallbacks;
+  std::vector<AsyncMqttClientInternals::OnSubscribeUserCallback> _onSubscribeUserCallbacks;
+  std::vector<AsyncMqttClientInternals::OnUnsubscribeUserCallback> _onUnsubscribeUserCallbacks;
+  std::vector<AsyncMqttClientInternals::OnMessageUserCallback> _onMessageUserCallbacks;
+  std::vector<AsyncMqttClientInternals::OnPublishUserCallback> _onPublishUserCallbacks;
 
   AsyncMqttClientInternals::ParsingInformation _parsingInformation;
   AsyncMqttClientInternals::Packet* _currentParsedPacket;
