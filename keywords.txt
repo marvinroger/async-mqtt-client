@@ -13,6 +13,7 @@ AsyncMqttClientMessageProperties	KEYWORD1
 setKeepAlive	KEYWORD2
 setClientId	KEYWORD2
 setCleanSession	KEYWORD2
+setMaxTopicLength	KEYWORD2
 setCredentials	KEYWORD2
 setWill	KEYWORD2
 setServer	KEYWORD2

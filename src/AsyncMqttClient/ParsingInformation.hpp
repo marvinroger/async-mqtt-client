@@ -10,6 +10,10 @@ enum class BufferState : uint8_t {
 
 struct ParsingInformation {
   BufferState bufferState;
+
+  uint16_t maxTopicLength;
+  char* topicBuffer;
+
   uint8_t packetType;
   uint16_t packetFlags;
   uint32_t remainingLength;

@@ -29,7 +29,7 @@ class PublishPacket : public Packet {
   uint8_t _bytePosition;
   char _topicLengthMsb;
   uint16_t _topicLength;
-  char* _topic;
+  bool _ignore;
   char _packetIdMsb;
   uint16_t _packetId;
   uint32_t _payloadLength;

@@ -34,6 +34,7 @@ class AsyncMqttClient {
   AsyncMqttClient& setKeepAlive(uint16_t keepAlive);
   AsyncMqttClient& setClientId(const char* clientId);
   AsyncMqttClient& setCleanSession(bool cleanSession);
+  AsyncMqttClient& setMaxTopicLength(uint16_t maxTopicLength);
   AsyncMqttClient& setCredentials(const char* username, const char* password = nullptr);
   AsyncMqttClient& setWill(const char* topic, uint8_t qos, bool retain, const char* payload = nullptr, size_t length = 0);
   AsyncMqttClient& setServer(IPAddress ip, uint16_t port);

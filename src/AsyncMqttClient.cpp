@@ -31,6 +31,8 @@ AsyncMqttClient::AsyncMqttClient()
   sprintf(_generatedClientId, "esp8266%06x", ESP.getFlashChipId());
   _clientId = _generatedClientId;
 
+  setMaxTopicLength(128);
+
   _onConnectUserCallback = []() { };
   _onDisconnectUserCallback = [](AsyncMqttClientDisconnectReason reason) { (void)reason; };
   _onSubscribeUserCallback = [](uint16_t packetId, uint8_t qos) { (void)packetId; (void)qos; };
@@ -41,6 +43,7 @@ AsyncMqttClient::AsyncMqttClient()
 
 AsyncMqttClient::~AsyncMqttClient() {
   delete _currentParsedPacket;
+  delete[] _parsingInformation.topicBuffer;
 }
 
 AsyncMqttClient& AsyncMqttClient::setKeepAlive(uint16_t keepAlive) {
@@ -55,6 +58,13 @@ AsyncMqttClient& AsyncMqttClient::setClientId(const char* clientId) {
 
 AsyncMqttClient& AsyncMqttClient::setCleanSession(bool cleanSession) {
   _cleanSession = cleanSession;
+  return *this;
+}
+
+AsyncMqttClient& AsyncMqttClient::setMaxTopicLength(uint16_t maxTopicLength) {
+  _parsingInformation.maxTopicLength = maxTopicLength;
+  delete[] _parsingInformation.topicBuffer;
+  _parsingInformation.topicBuffer = new char[maxTopicLength + 1];
   return *this;
 }
 
