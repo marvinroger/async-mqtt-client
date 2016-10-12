@@ -3,8 +3,10 @@
 
 AsyncMqttClient mqttClient;
 
-void onMqttConnect() {
+void onMqttConnect(bool sessionPresent) {
   Serial.println("** Connected to the broker **");
+  Serial.print("Session present: ");
+  Serial.println(sessionPresent);
   uint16_t packetIdSub = mqttClient.subscribe("test/lol", 2);
   Serial.print("Subscribing at QoS 2, packetId: ");
   Serial.println(packetIdSub);
@@ -85,7 +87,7 @@ void setup() {
   mqttClient.onMessage(onMqttMessage);
   mqttClient.onPublish(onMqttPublish);
   mqttClient.setServer(IPAddress(192, 168, 1, 20), 1883);
-  mqttClient.setKeepAlive(5).setWill("topic/online", 2, true, "no").setCredentials("username", "password").setClientId("myDevice");
+  mqttClient.setKeepAlive(5).setCleanSession(false).setWill("topic/online", 2, true, "no").setCredentials("username", "password").setClientId("myDevice");
   Serial.println("Connecting to MQTT...");
   mqttClient.connect();
 }

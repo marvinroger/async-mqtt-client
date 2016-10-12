@@ -349,7 +349,7 @@ void AsyncMqttClient::_onConnAck(bool sessionPresent, uint8_t connectReturnCode)
 
   if (connectReturnCode == 0) {
     _connected = true;
-    for (auto callback : _onConnectUserCallbacks) callback();
+    for (auto callback : _onConnectUserCallbacks) callback(sessionPresent);
   } else {
     _clear();
     for (auto callback : _onDisconnectUserCallbacks) callback(static_cast<AsyncMqttClientDisconnectReason>(connectReturnCode));

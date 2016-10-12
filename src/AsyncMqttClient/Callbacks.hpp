@@ -7,7 +7,7 @@
 
 namespace AsyncMqttClientInternals {
 // user callbacks
-typedef std::function<void()> OnConnectUserCallback;
+typedef std::function<void(bool sessionPresent)> OnConnectUserCallback;
 typedef std::function<void(AsyncMqttClientDisconnectReason reason)> OnDisconnectUserCallback;
 typedef std::function<void(uint16_t packetId, uint8_t qos)> OnSubscribeUserCallback;
 typedef std::function<void(uint16_t packetId)> OnUnsubscribeUserCallback;
