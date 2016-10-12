@@ -152,7 +152,8 @@ void AsyncMqttClient::_onConnect(AsyncClient* client) {
   protocolLevel[0] = 0x04;
 
   char connectFlags[1];
-  if (_cleanSession) connectFlags[0] = AsyncMqttClientInternals::ConnectFlag.CLEAN_SESSION;
+  connectFlags[0] = 0;
+  if (_cleanSession) connectFlags[0] |= AsyncMqttClientInternals::ConnectFlag.CLEAN_SESSION;
   if (_username != nullptr) connectFlags[0] |= AsyncMqttClientInternals::ConnectFlag.USERNAME;
   if (_password != nullptr) connectFlags[0] |= AsyncMqttClientInternals::ConnectFlag.PASSWORD;
   if (_willTopic != nullptr) {
