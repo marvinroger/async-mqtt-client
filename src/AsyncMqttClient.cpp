@@ -28,7 +28,7 @@ AsyncMqttClient::AsyncMqttClient()
   _client.onData([](void* obj, AsyncClient* c, void* data, size_t len) { (static_cast<AsyncMqttClient*>(obj))->_onData(c, static_cast<char*>(data), len); }, this);
   _client.onPoll([](void* obj, AsyncClient* c) { (static_cast<AsyncMqttClient*>(obj))->_onPoll(c); }, this);
 
-  sprintf(_generatedClientId, "esp8266%06x", ESP.getFlashChipId());
+  sprintf(_generatedClientId, "esp8266%06x", ESP.getChipId());
   _clientId = _generatedClientId;
 
   setMaxTopicLength(128);
