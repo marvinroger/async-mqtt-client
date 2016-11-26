@@ -2,7 +2,9 @@
 
 AsyncMqttClient::AsyncMqttClient()
 : _connected(false)
-, _lastActivity(0)
+, _lastClientActivity(0)
+, _lastServerActivity(0)
+, _lastPingRequestTime(0)
 , _host(nullptr)
 , _useIp(false)
 , _port(0)
@@ -126,6 +128,7 @@ void AsyncMqttClient::_freeCurrentParsedPacket() {
 }
 
 void AsyncMqttClient::_clear() {
+  _lastPingRequestTime = 0;
   _connected = false;
   _freeCurrentParsedPacket();
   _pendingPubRels.clear();
@@ -242,7 +245,7 @@ void AsyncMqttClient::_onConnect(AsyncClient* client) {
     _client.add(_password, passwordLength);
   }
   _client.send();
-  _lastActivity = millis();
+  _lastClientActivity = millis();
 }
 
 void AsyncMqttClient::_onDisconnect(AsyncClient* client) {
@@ -280,6 +283,7 @@ void AsyncMqttClient::_onData(AsyncClient* client, char* data, size_t len) {
         _parsingInformation.packetType = currentByte >> 4;
         _parsingInformation.packetFlags = (currentByte << 4) >> 4;
         _parsingInformation.bufferState = AsyncMqttClientInternals::BufferState::REMAINING_LENGTH;
+        _lastServerActivity = millis();
         switch (_parsingInformation.packetType) {
           case AsyncMqttClientInternals::PacketType.CONNACK:
             _currentParsedPacket = new AsyncMqttClientInternals::ConnAckPacket(&_parsingInformation, std::bind(&AsyncMqttClient::_onConnAck, this, std::placeholders::_1, std::placeholders::_2));
@@ -334,7 +338,21 @@ void AsyncMqttClient::_onData(AsyncClient* client, char* data, size_t len) {
 }
 
 void AsyncMqttClient::_onPoll(AsyncClient* client) {
-  if (_connected && millis() - _lastActivity >= (_keepAlive * 1000)) {
+  // if there is too much time the client has sent a ping request without a response, disconnect client to avoid half open connections
+  if (_connected && _lastPingRequestTime!=0 && (millis() - _lastPingRequestTime) >= (_keepAlive * 1000 * 2)) {
+    Serial.println(">>>>>>>> DISCONNECTING FROM MQTT SERVER BECAUSE OF NO REPLY");
+    disconnect();
+  }
+parei aqui... aparentemente o ping chega ao servidor (que sempre responde), mas a resposta não está chegando de volta...
+  // send ping to ensure the server will receive at least one message inside keepalive window
+  if (_connected && _lastPingRequestTime==0 && millis() - _lastClientActivity >= (_keepAlive * 1000 * 0.7)) {
+    Serial.println(">>>>>>>> SENDING PING FOR CLIENT VERIFICATION");
+    _sendPing();
+  }
+
+  // send ping to verify if the server is still there (ensure this is not a half connection)
+  if (_connected && _lastPingRequestTime==0 && millis() - _lastServerActivity >= (_keepAlive * 1000 * 0.7)) {
+    Serial.println(">>>>>>>> SENDING PING FOR SERVER VERIFICATION");
     _sendPing();
   }
 }
@@ -342,6 +360,8 @@ void AsyncMqttClient::_onPoll(AsyncClient* client) {
 /* MQTT */
 void AsyncMqttClient::_onPingResp() {
   _freeCurrentParsedPacket();
+  _lastPingRequestTime = 0;
+  Serial.println(">>>>>>>> RECEIVED PING RESPONSE FROM SERVER");
 }
 
 void AsyncMqttClient::_onConnAck(bool sessionPresent, uint8_t connectReturnCode) {
@@ -406,7 +426,7 @@ void AsyncMqttClient::_onPublish(uint16_t packetId, uint8_t qos) {
     _client.add(fixedHeader, 2);
     _client.add(packetIdBytes, 2);
     _client.send();
-    _lastActivity = millis();
+    _lastClientActivity = millis();
   } else if (qos == 2) {
     char fixedHeader[2];
     fixedHeader[0] = AsyncMqttClientInternals::PacketType.PUBREC;
@@ -421,7 +441,7 @@ void AsyncMqttClient::_onPublish(uint16_t packetId, uint8_t qos) {
     _client.add(fixedHeader, 2);
     _client.add(packetIdBytes, 2);
     _client.send();
-    _lastActivity = millis();
+    _lastClientActivity = millis();
 
     bool pubRelAwaiting = false;
     for (AsyncMqttClientInternals::PendingPubRel pendingPubRel : _pendingPubRels) {
@@ -457,7 +477,7 @@ void AsyncMqttClient::_onPubRel(uint16_t packetId) {
   _client.add(fixedHeader, 2);
   _client.add(packetIdBytes, 2);
   _client.send();
-  _lastActivity = millis();
+  _lastClientActivity = millis();
 
   for (size_t i = 0; i < _pendingPubRels.size(); i++) {
     if (_pendingPubRels[i].packetId == packetId) {
@@ -489,7 +509,7 @@ void AsyncMqttClient::_onPubRec(uint16_t packetId) {
   _client.add(fixedHeader, 2);
   _client.add(packetIdBytes, 2);
   _client.send();
-  _lastActivity = millis();
+  _lastClientActivity = millis();
 }
 
 void AsyncMqttClient::_onPubComp(uint16_t packetId) {
@@ -507,7 +527,9 @@ void AsyncMqttClient::_sendPing() {
 
   _client.add(fixedHeader, 2);
   _client.send();
-  _lastActivity = millis();
+  _lastClientActivity = millis();
+
+  _lastPingRequestTime = millis();
 }
 
 uint16_t AsyncMqttClient::_getNextPacketId() {
@@ -575,7 +597,7 @@ uint16_t AsyncMqttClient::subscribe(const char* topic, uint8_t qos) {
   _client.add(topic, topicLength);
   _client.add(qosByte, 1);
   _client.send();
-  _lastActivity = millis();
+  _lastClientActivity = millis();
 
   return packetId;
 }
@@ -604,7 +626,7 @@ uint16_t AsyncMqttClient::unsubscribe(const char* topic) {
   _client.add(topicLengthBytes, 2);
   _client.add(topic, topicLength);
   _client.send();
-  _lastActivity = millis();
+  _lastClientActivity = millis();
 
   return packetId;
 }
@@ -654,7 +676,7 @@ uint16_t AsyncMqttClient::publish(const char* topic, uint8_t qos, bool retain, c
   if (qos != 0) _client.add(packetIdBytes, 2);
   if (payload != nullptr) _client.add(payload, payloadLength);
   _client.send();
-  _lastActivity = millis();
+  _lastClientActivity = millis();
 
   return packetId;
 }
