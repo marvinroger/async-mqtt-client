@@ -264,7 +264,7 @@ void AsyncMqttClient::_onTimeout(AsyncClient* client, uint32_t time) {
   (void)client;
   (void)time;
   // disconnection will be handled by ping/pong management now
-  //_clear();
+  // _clear();
 }
 
 void AsyncMqttClient::_onAck(AsyncClient* client, size_t len, uint32_t time) {
@@ -323,7 +323,7 @@ void AsyncMqttClient::_onData(AsyncClient* client, char* data, size_t len) {
         if (currentByte >> 7 == 0) {
           _parsingInformation.remainingLength = AsyncMqttClientInternals::Helpers::decodeRemainingLength(_remainingLengthBuffer);
           _remainingLengthBufferPosition = 0;
-          if(_parsingInformation.remainingLength>0) {
+          if (_parsingInformation.remainingLength > 0) {
             _parsingInformation.bufferState = AsyncMqttClientInternals::BufferState::VARIABLE_HEADER;
           } else {
             // PINGRESP is a special case where it has no variable header, so the packet ends right here
@@ -347,19 +347,18 @@ void AsyncMqttClient::_onData(AsyncClient* client, char* data, size_t len) {
 void AsyncMqttClient::_onPoll(AsyncClient* client) {
   if (_connected) {
     // if there is too much time the client has sent a ping request without a response, disconnect client to avoid half open connections
-    if(_lastPingRequestTime!=0 && (millis() - _lastPingRequestTime) >= (_keepAlive * 1000 * 2)) {
+    if (_lastPingRequestTime != 0 && (millis() - _lastPingRequestTime) >= (_keepAlive * 1000 * 2)) {
       disconnect();
 
     // send ping to ensure the server will receive at least one message inside keepalive window
-    } else if (_lastPingRequestTime==0 && (millis() - _lastClientActivity) >= (_keepAlive * 1000 * 0.7)) {
+    } else if (_lastPingRequestTime == 0 && (millis() - _lastClientActivity) >= (_keepAlive * 1000 * 0.7)) {
       _sendPing();
 
     // send ping to verify if the server is still there (ensure this is not a half connection)
-    } else if (_connected && _lastPingRequestTime==0 && (millis() - _lastServerActivity) >= (_keepAlive * 1000 * 0.7)) {
+    } else if (_connected && _lastPingRequestTime == 0 && (millis() - _lastServerActivity) >= (_keepAlive * 1000 * 0.7)) {
       _sendPing();
     }
   }
-
 }
 
 /* MQTT */
