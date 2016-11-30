@@ -13,8 +13,6 @@ PingRespPacket::~PingRespPacket() {
 void PingRespPacket::parseVariableHeader(char* data, size_t len, size_t* currentBytePosition) {
   (void)data;
   (void)currentBytePosition;
-  _parsingInformation->bufferState = BufferState::NONE;
-  _callback();
 }
 
 void PingRespPacket::parsePayload(char* data, size_t len, size_t* currentBytePosition) {

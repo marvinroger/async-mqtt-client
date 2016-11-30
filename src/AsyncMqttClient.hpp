@@ -58,7 +58,9 @@ class AsyncMqttClient {
   AsyncClient _client;
 
   bool _connected;
-  uint32_t _lastActivity;
+  uint32_t _lastClientActivity;
+  uint32_t _lastServerActivity;
+  uint32_t _lastPingRequestTime;
 
   char _generatedClientId[13 + 1];  // esp8266abc123
   IPAddress _ip;
