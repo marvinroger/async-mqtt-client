@@ -7,6 +7,9 @@ AsyncMqttClient::AsyncMqttClient()
 , _lastPingRequestTime(0)
 , _host(nullptr)
 , _useIp(false)
+#if ASYNC_TCP_SSL_ENABLED
+, _secure(false)
+#endif
 , _port(0)
 , _keepAlive(15)
 , _cleanSession(true)
@@ -91,6 +94,13 @@ AsyncMqttClient& AsyncMqttClient::setServer(const char* host, uint16_t port) {
   _port = port;
   return *this;
 }
+
+#if ASYNC_TCP_SSL_ENABLED
+AsyncMqttClient& AsyncMqttClient::setSecure(bool secure) {
+  _secure = secure;
+  return *this;
+}
+#endif
 
 AsyncMqttClient& AsyncMqttClient::onConnect(AsyncMqttClientInternals::OnConnectUserCallback callback) {
   _onConnectUserCallbacks.push_back(callback);
@@ -551,11 +561,19 @@ bool AsyncMqttClient::connected() const {
 void AsyncMqttClient::connect() {
   if (_connected) return;
 
+#if ASYNC_TCP_SSL_ENABLED
+  if (_useIp) {
+    _client.connect(_ip, _port, _secure);
+  } else {
+    _client.connect(_host, _port, _secure);
+  }
+#else
   if (_useIp) {
     _client.connect(_ip, _port);
   } else {
     _client.connect(_host, _port);
   }
+#endif
 }
 
 void AsyncMqttClient::disconnect() {
