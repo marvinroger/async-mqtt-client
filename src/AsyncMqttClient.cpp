@@ -100,6 +100,13 @@ AsyncMqttClient& AsyncMqttClient::setSecure(bool secure) {
   _secure = secure;
   return *this;
 }
+
+AsyncMqttClient& AsyncMqttClient::setServerFingerprint(const uint8_t* fp) {
+  std::array<uint8_t,SHA1_SIZE> newFingerprint;
+  memcpy(newFingerprint.data(),fp,SHA1_SIZE);
+  _secureServerFingerprints.push_back(newFingerprint);
+  return *this;
+}
 #endif
 
 AsyncMqttClient& AsyncMqttClient::onConnect(AsyncMqttClientInternals::OnConnectUserCallback callback) {
@@ -151,6 +158,29 @@ void AsyncMqttClient::_clear() {
 /* TCP */
 void AsyncMqttClient::_onConnect(AsyncClient* client) {
   (void)client;
+
+#if ASYNC_TCP_SSL_ENABLED
+  if (_secureServerFingerprints.size() > 0) {
+    bool sslFoundFingerprint = false;
+
+    SSL* clientSsl = _client.getSSL();
+    const uint8_t* fingerprint;
+
+    for (std::vector<std::array<uint8_t,SHA1_SIZE>>::iterator it = _secureServerFingerprints.begin(); it != _secureServerFingerprints.end(); ++it) {
+      fingerprint = it->data();
+      if ( ssl_match_fingerprint(clientSsl, fingerprint) == SSL_OK ) {
+        sslFoundFingerprint = true;
+      }
+    }
+
+    if (!sslFoundFingerprint) {
+      _client.close();
+      return;
+    }
+
+  }
+#endif
+
   char fixedHeader[5];
   fixedHeader[0] = AsyncMqttClientInternals::PacketType.CONNECT;
   fixedHeader[0] = fixedHeader[0] << 4;

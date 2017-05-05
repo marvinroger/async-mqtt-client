@@ -7,6 +7,11 @@
 
 #include <ESPAsyncTCP.h>
 
+#if ASYNC_TCP_SSL_ENABLED
+#include <tcp_axtls.h>
+#define SHA1_SIZE 20
+#endif
+
 #include "AsyncMqttClient/Flags.hpp"
 #include "AsyncMqttClient/ParsingInformation.hpp"
 #include "AsyncMqttClient/MessageProperties.hpp"
@@ -41,6 +46,7 @@ class AsyncMqttClient {
   AsyncMqttClient& setServer(const char* host, uint16_t port);
 #if ASYNC_TCP_SSL_ENABLED
   AsyncMqttClient& setSecure(bool secure);
+  AsyncMqttClient& setServerFingerprint(const uint8_t* fp);
 #endif
 
   AsyncMqttClient& onConnect(AsyncMqttClientInternals::OnConnectUserCallback callback);
@@ -83,6 +89,10 @@ class AsyncMqttClient {
   uint16_t _willPayloadLength;
   uint8_t _willQos;
   bool _willRetain;
+
+#if ASYNC_TCP_SSL_ENABLED
+  std::vector<std::array<uint8_t,SHA1_SIZE>> _secureServerFingerprints;
+#endif
 
   std::vector<AsyncMqttClientInternals::OnConnectUserCallback> _onConnectUserCallbacks;
   std::vector<AsyncMqttClientInternals::OnDisconnectUserCallback> _onDisconnectUserCallbacks;
