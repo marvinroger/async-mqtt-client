@@ -569,7 +569,7 @@ void AsyncMqttClient::disconnect() {
 
   _client.add(fixedHeader, 2);
   _client.send();
-  _client.close();
+  _client.close(true);
 }
 
 uint16_t AsyncMqttClient::subscribe(const char* topic, uint8_t qos) {
