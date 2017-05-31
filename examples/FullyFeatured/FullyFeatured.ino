@@ -16,7 +16,6 @@ WiFiEventHandler wifiDisconnectHandler;
 Ticker wifiReconnectTimer;
 
 void connectToWifi() {
-  wifiReconnectTimer.detach();
   Serial.println("Connecting to Wi-Fi...");
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 }
@@ -29,12 +28,11 @@ void onWifiConnect(const WiFiEventStationModeGotIP& event) {
 void onWifiDisconnect(const WiFiEventStationModeDisconnected& event) {
   Serial.println("Disconnected from Wi-Fi.");
   mqttReconnectTimer.detach(); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
-  wifiReconnectTimer.attach(2, connectToWifi);
+  wifiReconnectTimer.once(2, connectToWifi);
 }
 
 void connectToMqtt() {
   Serial.println("Connecting to MQTT...");
-  mqttReconnectTimer.detach();
   mqttClient.connect();
 }
 
@@ -60,7 +58,7 @@ void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
 
   if (WiFi.isConnected()) {
     Serial.println("Connecting to MQTT...");
-    mqttReconnectTimer.attach(2, connectToMqtt);
+    mqttReconnectTimer.once(2, connectToMqtt);
   }
 }
 
