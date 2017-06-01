@@ -521,18 +521,23 @@ void AsyncMqttClient::_onPubComp(uint16_t packetId) {
   for (auto callback : _onPublishUserCallbacks) callback(packetId);
 }
 
-void AsyncMqttClient::_sendPing() {
+bool AsyncMqttClient::_sendPing() {
   char fixedHeader[2];
   fixedHeader[0] = AsyncMqttClientInternals::PacketType.PINGREQ;
   fixedHeader[0] = fixedHeader[0] << 4;
   fixedHeader[0] = fixedHeader[0] | AsyncMqttClientInternals::HeaderFlag.PINGREQ_RESERVED;
   fixedHeader[1] = 0;
 
+  size_t neededSpace = 2;
+  
+  if (_client.space() < neededSpace) return false;
+
   _client.add(fixedHeader, 2);
   _client.send();
   _lastClientActivity = millis();
-
   _lastPingRequestTime = millis();
+  
+  return true;
 }
 
 uint16_t AsyncMqttClient::_getNextPacketId() {
@@ -594,6 +599,15 @@ uint16_t AsyncMqttClient::subscribe(const char* topic, uint8_t qos) {
   qosByte[0] = qos;
 
   uint8_t remainingLengthLength = AsyncMqttClientInternals::Helpers::encodeRemainingLength(2 + 2 + topicLength + 1, fixedHeader + 1);
+  
+  size_t neededSpace = 0;
+  neededSpace += 1 + remainingLengthLength;
+  neededSpace += 2;
+  neededSpace += 2;
+  neededSpace += topicLength;
+  neededSpace += 1;
+  if (_client.space() < neededSpace) return 0;
+  
   _client.add(fixedHeader, 1 + remainingLengthLength);
   _client.add(packetIdBytes, 2);
   _client.add(topicLengthBytes, 2);
@@ -624,6 +638,14 @@ uint16_t AsyncMqttClient::unsubscribe(const char* topic) {
   topicLengthBytes[1] = topicLength & 0xFF;
 
   uint8_t remainingLengthLength = AsyncMqttClientInternals::Helpers::encodeRemainingLength(2 + 2 + topicLength, fixedHeader + 1);
+  
+  size_t neededSpace = 0;
+  neededSpace += 1 + remainingLengthLength;
+  neededSpace += 2;
+  neededSpace += 2;
+  neededSpace += topicLength;
+  if (_client.space() < neededSpace) return 0;
+  
   _client.add(fixedHeader, 1 + remainingLengthLength);
   _client.add(packetIdBytes, 2);
   _client.add(topicLengthBytes, 2);
@@ -673,6 +695,15 @@ uint16_t AsyncMqttClient::publish(const char* topic, uint8_t qos, bool retain, c
   uint32_t remainingLength = 2 + topicLength + payloadLength;
   if (qos != 0) remainingLength += 2;
   uint8_t remainingLengthLength = AsyncMqttClientInternals::Helpers::encodeRemainingLength(remainingLength, fixedHeader + 1);
+  
+  size_t neededSpace = 0;
+  neededSpace += 1 + remainingLengthLength;
+  neededSpace += 2;
+  neededSpace += topicLength;
+  if (qos != 0) neededSpace += 2;
+  if (payload != nullptr) neededSpace += payloadLength;
+  if (_client.space() < neededSpace) return 0;
+  
   _client.add(fixedHeader, 1 + remainingLengthLength);
   _client.add(topicLengthBytes, 2);
   _client.add(topic, topicLength);

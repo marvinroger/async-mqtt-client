@@ -118,7 +118,7 @@ class AsyncMqttClient {
   void _onPubRec(uint16_t packetId);
   void _onPubComp(uint16_t packetId);
 
-  void _sendPing();
+  bool _sendPing();
 
   uint16_t _getNextPacketId();
 };
