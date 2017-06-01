@@ -712,5 +712,6 @@ uint16_t AsyncMqttClient::publish(const char* topic, uint8_t qos, bool retain, c
   _client.send();
   _lastClientActivity = millis();
 
-  return packetId;
+  if (qos != 0) return packetId;
+  else return 1;
 }
