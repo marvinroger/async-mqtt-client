@@ -160,7 +160,7 @@ void AsyncMqttClient::_onConnect(AsyncClient* client) {
   (void)client;
 
 #if ASYNC_TCP_SSL_ENABLED
-  if (_secureServerFingerprints.size() > 0) {
+  if (_secure && _secureServerFingerprints.size() > 0) {
     bool sslFoundFingerprint = false;
 
     SSL* clientSsl = _client.getSSL();
