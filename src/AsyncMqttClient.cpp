@@ -585,11 +585,6 @@ uint16_t AsyncMqttClient::subscribe(const char* topic, uint8_t qos) {
   fixedHeader[0] = fixedHeader[0] << 4;
   fixedHeader[0] = fixedHeader[0] | AsyncMqttClientInternals::HeaderFlag.SUBSCRIBE_RESERVED;
 
-  uint16_t packetId = _getNextPacketId();
-  char packetIdBytes[2];
-  packetIdBytes[0] = packetId >> 8;
-  packetIdBytes[1] = packetId & 0xFF;
-
   uint16_t topicLength = strlen(topic);
   char topicLengthBytes[2];
   topicLengthBytes[0] = topicLength >> 8;
@@ -607,6 +602,11 @@ uint16_t AsyncMqttClient::subscribe(const char* topic, uint8_t qos) {
   neededSpace += topicLength;
   neededSpace += 1;
   if (_client.space() < neededSpace) return 0;
+
+  uint16_t packetId = _getNextPacketId();
+  char packetIdBytes[2];
+  packetIdBytes[0] = packetId >> 8;
+  packetIdBytes[1] = packetId & 0xFF;
 
   _client.add(fixedHeader, 1 + remainingLengthLength);
   _client.add(packetIdBytes, 2);
@@ -627,11 +627,6 @@ uint16_t AsyncMqttClient::unsubscribe(const char* topic) {
   fixedHeader[0] = fixedHeader[0] << 4;
   fixedHeader[0] = fixedHeader[0] | AsyncMqttClientInternals::HeaderFlag.UNSUBSCRIBE_RESERVED;
 
-  uint16_t packetId = _getNextPacketId();
-  char packetIdBytes[2];
-  packetIdBytes[0] = packetId >> 8;
-  packetIdBytes[1] = packetId & 0xFF;
-
   uint16_t topicLength = strlen(topic);
   char topicLengthBytes[2];
   topicLengthBytes[0] = topicLength >> 8;
@@ -645,6 +640,11 @@ uint16_t AsyncMqttClient::unsubscribe(const char* topic) {
   neededSpace += 2;
   neededSpace += topicLength;
   if (_client.space() < neededSpace) return 0;
+
+  uint16_t packetId = _getNextPacketId();
+  char packetIdBytes[2];
+  packetIdBytes[0] = packetId >> 8;
+  packetIdBytes[1] = packetId & 0xFF;
 
   _client.add(fixedHeader, 1 + remainingLengthLength);
   _client.add(packetIdBytes, 2);
@@ -681,14 +681,6 @@ uint16_t AsyncMqttClient::publish(const char* topic, uint8_t qos, bool retain, c
   topicLengthBytes[0] = topicLength >> 8;
   topicLengthBytes[1] = topicLength & 0xFF;
 
-  uint16_t packetId = 0;
-  char packetIdBytes[2];
-  if (qos != 0) {
-    packetId = _getNextPacketId();
-    packetIdBytes[0] = packetId >> 8;
-    packetIdBytes[1] = packetId & 0xFF;
-  }
-
   uint32_t payloadLength = length;
   if (payload != nullptr && payloadLength == 0) payloadLength = strlen(payload);
 
@@ -703,6 +695,14 @@ uint16_t AsyncMqttClient::publish(const char* topic, uint8_t qos, bool retain, c
   if (qos != 0) neededSpace += 2;
   if (payload != nullptr) neededSpace += payloadLength;
   if (_client.space() < neededSpace) return 0;
+
+  uint16_t packetId = 0;
+  char packetIdBytes[2];
+  if (qos != 0) {
+    packetId = _getNextPacketId();
+    packetIdBytes[0] = packetId >> 8;
+    packetIdBytes[1] = packetId & 0xFF;
+  }
 
   _client.add(fixedHeader, 1 + remainingLengthLength);
   _client.add(topicLengthBytes, 2);
