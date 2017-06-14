@@ -102,7 +102,7 @@ AsyncMqttClient& AsyncMqttClient::setSecure(bool secure) {
 }
 
 AsyncMqttClient& AsyncMqttClient::setServerFingerprint(const uint8_t* fingerprint) {
-  std::array<uint8_t,SHA1_SIZE> newFingerprint;
+  std::array<uint8_t, SHA1_SIZE> newFingerprint;
   memcpy(newFingerprint.data(), fingerprint, SHA1_SIZE);
   _secureServerFingerprints.push_back(newFingerprint);
   return *this;
@@ -164,7 +164,7 @@ void AsyncMqttClient::_onConnect(AsyncClient* client) {
     bool sslFoundFingerprint = false;
     SSL* clientSsl = _client.getSSL();
     const uint8_t* fingerprint;
-    for (std::vector<std::array<uint8_t,SHA1_SIZE>>::iterator it = _secureServerFingerprints.begin(); it != _secureServerFingerprints.end(); ++it) {
+    for (std::vector<std::array<uint8_t, SHA1_SIZE>>::iterator it = _secureServerFingerprints.begin(); it != _secureServerFingerprints.end(); ++it) {
       fingerprint = it->data();
       if (ssl_match_fingerprint(clientSsl, fingerprint) == SSL_OK) {
         sslFoundFingerprint = true;

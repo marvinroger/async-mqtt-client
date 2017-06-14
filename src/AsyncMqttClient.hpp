@@ -91,7 +91,7 @@ class AsyncMqttClient {
   bool _willRetain;
 
 #if ASYNC_TCP_SSL_ENABLED
-  std::vector<std::array<uint8_t,SHA1_SIZE>> _secureServerFingerprints;
+  std::vector<std::array<uint8_t, SHA1_SIZE>> _secureServerFingerprints;
 #endif
 
   std::vector<AsyncMqttClientInternals::OnConnectUserCallback> _onConnectUserCallbacks;
