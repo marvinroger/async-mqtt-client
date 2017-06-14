@@ -17,6 +17,8 @@ setMaxTopicLength	KEYWORD2
 setCredentials	KEYWORD2
 setWill	KEYWORD2
 setServer	KEYWORD2
+setSecure	KEYWORD2
+addServerFingerprin	KEYWORD2
 
 onConnect	KEYWORD2
 onDisconnect	KEYWORD2
