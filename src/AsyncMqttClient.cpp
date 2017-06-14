@@ -131,8 +131,12 @@ void AsyncMqttClient::_clear() {
   _lastPingRequestTime = 0;
   _connected = false;
   _freeCurrentParsedPacket();
+
   _pendingPubRels.clear();
   _pendingPubRels.shrink_to_fit();
+
+  _toSendAcks.clear();
+  _toSendAcks.shrink_to_fit();
 
   _nextPacketId = 1;
   _parsingInformation.bufferState = AsyncMqttClientInternals::BufferState::NONE;
@@ -263,8 +267,7 @@ void AsyncMqttClient::_onError(AsyncClient* client, int8_t error) {
 void AsyncMqttClient::_onTimeout(AsyncClient* client, uint32_t time) {
   (void)client;
   (void)time;
-  // disconnection will be handled by ping/pong management now
-  // _clear();
+  // disconnection will be handled by ping/pong management
 }
 
 void AsyncMqttClient::_onAck(AsyncClient* client, size_t len, uint32_t time) {
@@ -345,20 +348,22 @@ void AsyncMqttClient::_onData(AsyncClient* client, char* data, size_t len) {
 }
 
 void AsyncMqttClient::_onPoll(AsyncClient* client) {
-  if (_connected) {
-    // if there is too much time the client has sent a ping request without a response, disconnect client to avoid half open connections
-    if (_lastPingRequestTime != 0 && (millis() - _lastPingRequestTime) >= (_keepAlive * 1000 * 2)) {
-      disconnect();
+  if (!_connected) return;
 
-    // send ping to ensure the server will receive at least one message inside keepalive window
-    } else if (_lastPingRequestTime == 0 && (millis() - _lastClientActivity) >= (_keepAlive * 1000 * 0.7)) {
-      _sendPing();
+  // if there is too much time the client has sent a ping request without a response, disconnect client to avoid half open connections
+  if (_lastPingRequestTime != 0 && (millis() - _lastPingRequestTime) >= (_keepAlive * 1000 * 2)) {
+    disconnect();
+    return;
+  // send ping to ensure the server will receive at least one message inside keepalive window
+  } else if (_lastPingRequestTime == 0 && (millis() - _lastClientActivity) >= (_keepAlive * 1000 * 0.7)) {
+    _sendPing();
 
-    // send ping to verify if the server is still there (ensure this is not a half connection)
-    } else if (_connected && _lastPingRequestTime == 0 && (millis() - _lastServerActivity) >= (_keepAlive * 1000 * 0.7)) {
-      _sendPing();
-    }
+  // send ping to verify if the server is still there (ensure this is not a half connection)
+  } else if (_connected && _lastPingRequestTime == 0 && (millis() - _lastServerActivity) >= (_keepAlive * 1000 * 0.7)) {
+    _sendPing();
   }
+
+  // handle to send packets
 }
 
 /* MQTT */

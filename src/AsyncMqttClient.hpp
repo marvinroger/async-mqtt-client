@@ -94,6 +94,8 @@ class AsyncMqttClient {
 
   std::vector<AsyncMqttClientInternals::PendingPubRel> _pendingPubRels;
 
+  std::vector<AsyncMqttClientInternals::PendingAck> _toSendAcks;
+
   void _clear();
   void _freeCurrentParsedPacket();
 
