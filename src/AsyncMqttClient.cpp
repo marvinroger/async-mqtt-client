@@ -4,6 +4,7 @@ AsyncMqttClient::AsyncMqttClient()
 : _connected(false)
 , _connectPacketNotEnoughSpace(false)
 , _disconnectFlagged(false)
+, _tlsBadFingerprint(false)
 , _lastClientActivity(0)
 , _lastServerActivity(0)
 , _lastPingRequestTime(0)
@@ -151,6 +152,7 @@ void AsyncMqttClient::_clear() {
   _connected = false;
   _disconnectFlagged = false;
   _connectPacketNotEnoughSpace = false;
+  _tlsBadFingerprint = false;
   _freeCurrentParsedPacket();
 
   _pendingPubRels.clear();
@@ -179,6 +181,7 @@ void AsyncMqttClient::_onConnect(AsyncClient* client) {
       }
     }
     if (!sslFoundFingerprint) {
+      _tlsBadFingerprint = true;
       _client.close(true);
       return;
     }
@@ -330,6 +333,8 @@ void AsyncMqttClient::_onDisconnect(AsyncClient* client) {
 
   if (_connectPacketNotEnoughSpace) {
     reason = AsyncMqttClientDisconnectReason::ESP8266_NOT_ENOUGH_SPACE;
+  } else if (_tlsBadFingerprint) {
+    reason = AsyncMqttClientDisconnectReason::TLS_BAD_FINGERPRINT;
   } else {
     reason = AsyncMqttClientDisconnectReason::TCP_DISCONNECTED;
   }
@@ -337,6 +342,7 @@ void AsyncMqttClient::_onDisconnect(AsyncClient* client) {
   for (auto callback : _onDisconnectUserCallbacks) callback(reason);
 
   _connectPacketNotEnoughSpace = false;
+  _tlsBadFingerprint = false;
 }
 
 void AsyncMqttClient::_onError(AsyncClient* client, int8_t error) {

@@ -9,5 +9,7 @@ enum class AsyncMqttClientDisconnectReason : int8_t {
   MQTT_MALFORMED_CREDENTIALS = 4,
   MQTT_NOT_AUTHORIZED = 5,
 
-  ESP8266_NOT_ENOUGH_SPACE = 6
+  ESP8266_NOT_ENOUGH_SPACE = 6,
+
+  TLS_BAD_FINGERPRINT = 7
 };
