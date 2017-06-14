@@ -7,6 +7,7 @@ struct PendingPubRel {
 
 struct PendingAck {
   uint8_t packetType;
+  uint8_t headerFlag;
   uint16_t packetId;
 };
 }  // namespace AsyncMqttClientInternals

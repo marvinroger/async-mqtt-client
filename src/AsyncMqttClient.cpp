@@ -363,7 +363,9 @@ void AsyncMqttClient::_onPoll(AsyncClient* client) {
     _sendPing();
   }
 
-  // handle to send packets
+  // handle to send ack packets
+
+  _sendAcks();
 }
 
 /* MQTT */
@@ -420,36 +422,18 @@ void AsyncMqttClient::_onMessage(char* topic, char* payload, uint8_t qos, bool d
 }
 
 void AsyncMqttClient::_onPublish(uint16_t packetId, uint8_t qos) {
+  AsyncMqttClientInternals::PendingAck pendingAck;
+
   if (qos == 1) {
-    char fixedHeader[2];
-    fixedHeader[0] = AsyncMqttClientInternals::PacketType.PUBACK;
-    fixedHeader[0] = fixedHeader[0] << 4;
-    fixedHeader[0] = fixedHeader[0] | AsyncMqttClientInternals::HeaderFlag.PUBACK_RESERVED;
-    fixedHeader[1] = 2;
-
-    char packetIdBytes[2];
-    packetIdBytes[0] = packetId >> 8;
-    packetIdBytes[1] = packetId & 0xFF;
-
-    _client.add(fixedHeader, 2);
-    _client.add(packetIdBytes, 2);
-    _client.send();
-    _lastClientActivity = millis();
+    pendingAck.packetType = AsyncMqttClientInternals::PacketType.PUBACK;
+    pendingAck.headerFlag = AsyncMqttClientInternals::HeaderFlag.PUBACK_RESERVED;
+    pendingAck.packetId = packetId;
+    _toSendAcks.push_back(pendingAck);
   } else if (qos == 2) {
-    char fixedHeader[2];
-    fixedHeader[0] = AsyncMqttClientInternals::PacketType.PUBREC;
-    fixedHeader[0] = fixedHeader[0] << 4;
-    fixedHeader[0] = fixedHeader[0] | AsyncMqttClientInternals::HeaderFlag.PUBREC_RESERVED;
-    fixedHeader[1] = 2;
-
-    char packetIdBytes[2];
-    packetIdBytes[0] = packetId >> 8;
-    packetIdBytes[1] = packetId & 0xFF;
-
-    _client.add(fixedHeader, 2);
-    _client.add(packetIdBytes, 2);
-    _client.send();
-    _lastClientActivity = millis();
+    pendingAck.packetType = AsyncMqttClientInternals::PacketType.PUBREC;
+    pendingAck.headerFlag = AsyncMqttClientInternals::HeaderFlag.PUBREC_RESERVED;
+    pendingAck.packetId = packetId;
+    _toSendAcks.push_back(pendingAck);
 
     bool pubRelAwaiting = false;
     for (AsyncMqttClientInternals::PendingPubRel pendingPubRel : _pendingPubRels) {
@@ -464,6 +448,8 @@ void AsyncMqttClient::_onPublish(uint16_t packetId, uint8_t qos) {
       pendingPubRel.packetId = packetId;
       _pendingPubRels.push_back(pendingPubRel);
     }
+
+    _sendAcks();
   }
 
   _freeCurrentParsedPacket();
@@ -472,20 +458,11 @@ void AsyncMqttClient::_onPublish(uint16_t packetId, uint8_t qos) {
 void AsyncMqttClient::_onPubRel(uint16_t packetId) {
   _freeCurrentParsedPacket();
 
-  char fixedHeader[2];
-  fixedHeader[0] = AsyncMqttClientInternals::PacketType.PUBCOMP;
-  fixedHeader[0] = fixedHeader[0] << 4;
-  fixedHeader[0] = fixedHeader[0] | AsyncMqttClientInternals::HeaderFlag.PUBCOMP_RESERVED;
-  fixedHeader[1] = 2;
-
-  char packetIdBytes[2];
-  packetIdBytes[0] = packetId >> 8;
-  packetIdBytes[1] = packetId & 0xFF;
-
-  _client.add(fixedHeader, 2);
-  _client.add(packetIdBytes, 2);
-  _client.send();
-  _lastClientActivity = millis();
+  AsyncMqttClientInternals::PendingAck pendingAck;
+  pendingAck.packetType = AsyncMqttClientInternals::PacketType.PUBCOMP;
+  pendingAck.headerFlag = AsyncMqttClientInternals::HeaderFlag.PUBCOMP_RESERVED;
+  pendingAck.packetId = packetId;
+  _toSendAcks.push_back(pendingAck);
 
   for (size_t i = 0; i < _pendingPubRels.size(); i++) {
     if (_pendingPubRels[i].packetId == packetId) {
@@ -493,6 +470,8 @@ void AsyncMqttClient::_onPubRel(uint16_t packetId) {
       _pendingPubRels.shrink_to_fit();
     }
   }
+
+  _sendAcks();
 }
 
 void AsyncMqttClient::_onPubAck(uint16_t packetId) {
@@ -504,20 +483,13 @@ void AsyncMqttClient::_onPubAck(uint16_t packetId) {
 void AsyncMqttClient::_onPubRec(uint16_t packetId) {
   _freeCurrentParsedPacket();
 
-  char fixedHeader[2];
-  fixedHeader[0] = AsyncMqttClientInternals::PacketType.PUBREL;
-  fixedHeader[0] = fixedHeader[0] << 4;
-  fixedHeader[0] = fixedHeader[0] | AsyncMqttClientInternals::HeaderFlag.PUBREL_RESERVED;
-  fixedHeader[1] = 2;
+  AsyncMqttClientInternals::PendingAck pendingAck;
+  pendingAck.packetType = AsyncMqttClientInternals::PacketType.PUBREL;
+  pendingAck.headerFlag = AsyncMqttClientInternals::HeaderFlag.PUBREL_RESERVED;
+  pendingAck.packetId = packetId;
+  _toSendAcks.push_back(pendingAck);
 
-  char packetIdBytes[2];
-  packetIdBytes[0] = packetId >> 8;
-  packetIdBytes[1] = packetId & 0xFF;
-
-  _client.add(fixedHeader, 2);
-  _client.add(packetIdBytes, 2);
-  _client.send();
-  _lastClientActivity = millis();
+  _sendAcks();
 }
 
 void AsyncMqttClient::_onPubComp(uint16_t packetId) {
@@ -543,6 +515,35 @@ bool AsyncMqttClient::_sendPing() {
   _lastPingRequestTime = millis();
 
   return true;
+}
+
+void AsyncMqttClient::_sendAcks() {
+  uint8_t neededAckSpace = 2 + 2;
+
+  for (size_t i = 0; i < _toSendAcks.size(); i++) {
+    if (_client.space() < neededAckSpace) break;
+
+    AsyncMqttClientInternals::PendingAck pendingAck = _toSendAcks[i];
+
+    char fixedHeader[2];
+    fixedHeader[0] = pendingAck.packetType;
+    fixedHeader[0] = fixedHeader[0] << 4;
+    fixedHeader[0] = fixedHeader[0] | pendingAck.headerFlag;
+    fixedHeader[1] = 2;
+
+    char packetIdBytes[2];
+    packetIdBytes[0] = pendingAck.packetId >> 8;
+    packetIdBytes[1] = pendingAck.packetId & 0xFF;
+
+    _client.add(fixedHeader, 2);
+    _client.add(packetIdBytes, 2);
+    _client.send();
+
+    _toSendAcks.erase(_toSendAcks.begin() + i);
+    _toSendAcks.shrink_to_fit();
+
+    _lastClientActivity = millis();
+  }
 }
 
 uint16_t AsyncMqttClient::_getNextPacketId() {

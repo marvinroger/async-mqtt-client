@@ -22,7 +22,7 @@ onConnect	KEYWORD2
 onDisconnect	KEYWORD2
 onSubscribe	KEYWORD2
 onUnsubscribe	KEYWORD2
-onPublish	KEYWORD2
+onMessage	KEYWORD2
 onPublish	KEYWORD2
 
 connected	KEYWORD2
