@@ -46,7 +46,7 @@ class AsyncMqttClient {
   AsyncMqttClient& setServer(const char* host, uint16_t port);
 #if ASYNC_TCP_SSL_ENABLED
   AsyncMqttClient& setSecure(bool secure);
-  AsyncMqttClient& setServerFingerprint(const uint8_t* fingerprint);
+  AsyncMqttClient& addServerFingerprint(const uint8_t* fingerprint);
 #endif
 
   AsyncMqttClient& onConnect(AsyncMqttClientInternals::OnConnectUserCallback callback);
