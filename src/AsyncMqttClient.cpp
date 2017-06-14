@@ -171,15 +171,16 @@ void AsyncMqttClient::_onConnect(AsyncClient* client) {
 
 #if ASYNC_TCP_SSL_ENABLED
   if (_secure && _secureServerFingerprints.size() > 0) {
-    bool sslFoundFingerprint = false;
     SSL* clientSsl = _client.getSSL();
-    const uint8_t* fingerprint;
-    for (std::vector<std::array<uint8_t, SHA1_SIZE>>::iterator it = _secureServerFingerprints.begin(); it != _secureServerFingerprints.end(); ++it) {
-      fingerprint = it->data();
-      if (ssl_match_fingerprint(clientSsl, fingerprint) == SSL_OK) {
+
+    bool sslFoundFingerprint = false;
+    for (std::array<uint8_t, SHA1_SIZE> fingerprint : _secureServerFingerprints) {
+      if (ssl_match_fingerprint(clientSsl, fingerprint->data()) == SSL_OK) {
         sslFoundFingerprint = true;
+        break;
       }
     }
+
     if (!sslFoundFingerprint) {
       _tlsBadFingerprint = true;
       _client.close(true);
