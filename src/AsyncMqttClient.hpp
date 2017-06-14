@@ -49,7 +49,7 @@ class AsyncMqttClient {
 
   bool connected() const;
   void connect();
-  void disconnect();
+  void disconnect(bool force = false);
   uint16_t subscribe(const char* topic, uint8_t qos);
   uint16_t unsubscribe(const char* topic);
   uint16_t publish(const char* topic, uint8_t qos, bool retain, const char* payload = nullptr, size_t length = 0);
@@ -58,6 +58,8 @@ class AsyncMqttClient {
   AsyncClient _client;
 
   bool _connected;
+  bool _connectPacketNotEnoughSpace;
+  bool _disconnectFlagged;
   uint32_t _lastClientActivity;
   uint32_t _lastServerActivity;
   uint32_t _lastPingRequestTime;
@@ -122,6 +124,7 @@ class AsyncMqttClient {
 
   bool _sendPing();
   void _sendAcks();
+  bool _sendDisconnect();
 
   uint16_t _getNextPacketId();
 };
