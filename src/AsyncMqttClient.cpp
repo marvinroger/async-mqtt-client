@@ -7,6 +7,9 @@ AsyncMqttClient::AsyncMqttClient()
 , _lastPingRequestTime(0)
 , _host(nullptr)
 , _useIp(false)
+#if ASYNC_TCP_SSL_ENABLED
+, _secure(false)
+#endif
 , _port(0)
 , _keepAlive(15)
 , _cleanSession(true)
@@ -92,6 +95,20 @@ AsyncMqttClient& AsyncMqttClient::setServer(const char* host, uint16_t port) {
   return *this;
 }
 
+#if ASYNC_TCP_SSL_ENABLED
+AsyncMqttClient& AsyncMqttClient::setSecure(bool secure) {
+  _secure = secure;
+  return *this;
+}
+
+AsyncMqttClient& AsyncMqttClient::addServerFingerprint(const uint8_t* fingerprint) {
+  std::array<uint8_t, SHA1_SIZE> newFingerprint;
+  memcpy(newFingerprint.data(), fingerprint, SHA1_SIZE);
+  _secureServerFingerprints.push_back(newFingerprint);
+  return *this;
+}
+#endif
+
 AsyncMqttClient& AsyncMqttClient::onConnect(AsyncMqttClientInternals::OnConnectUserCallback callback) {
   _onConnectUserCallbacks.push_back(callback);
   return *this;
@@ -141,6 +158,25 @@ void AsyncMqttClient::_clear() {
 /* TCP */
 void AsyncMqttClient::_onConnect(AsyncClient* client) {
   (void)client;
+
+#if ASYNC_TCP_SSL_ENABLED
+  if (_secure && _secureServerFingerprints.size() > 0) {
+    bool sslFoundFingerprint = false;
+    SSL* clientSsl = _client.getSSL();
+    const uint8_t* fingerprint;
+    for (std::vector<std::array<uint8_t, SHA1_SIZE>>::iterator it = _secureServerFingerprints.begin(); it != _secureServerFingerprints.end(); ++it) {
+      fingerprint = it->data();
+      if (ssl_match_fingerprint(clientSsl, fingerprint) == SSL_OK) {
+        sslFoundFingerprint = true;
+      }
+    }
+    if (!sslFoundFingerprint) {
+      _client.close(true);
+      return;
+    }
+  }
+#endif
+
   char fixedHeader[5];
   fixedHeader[0] = AsyncMqttClientInternals::PacketType.CONNECT;
   fixedHeader[0] = fixedHeader[0] << 4;
@@ -556,11 +592,19 @@ bool AsyncMqttClient::connected() const {
 void AsyncMqttClient::connect() {
   if (_connected) return;
 
+#if ASYNC_TCP_SSL_ENABLED
+  if (_useIp) {
+    _client.connect(_ip, _port, _secure);
+  } else {
+    _client.connect(_host, _port, _secure);
+  }
+#else
   if (_useIp) {
     _client.connect(_ip, _port);
   } else {
     _client.connect(_host, _port);
   }
+#endif
 }
 
 void AsyncMqttClient::disconnect() {
