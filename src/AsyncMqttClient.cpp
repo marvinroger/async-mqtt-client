@@ -175,7 +175,7 @@ void AsyncMqttClient::_onConnect(AsyncClient* client) {
 
     bool sslFoundFingerprint = false;
     for (std::array<uint8_t, SHA1_SIZE> fingerprint : _secureServerFingerprints) {
-      if (ssl_match_fingerprint(clientSsl, fingerprint->data()) == SSL_OK) {
+      if (ssl_match_fingerprint(clientSsl, fingerprint.data()) == SSL_OK) {
         sslFoundFingerprint = true;
         break;
       }
@@ -329,7 +329,6 @@ void AsyncMqttClient::_onConnect(AsyncClient* client) {
 
 void AsyncMqttClient::_onDisconnect(AsyncClient* client) {
   (void)client;
-  _clear();
   AsyncMqttClientDisconnectReason reason;
 
   if (_connectPacketNotEnoughSpace) {
@@ -339,6 +338,8 @@ void AsyncMqttClient::_onDisconnect(AsyncClient* client) {
   } else {
     reason = AsyncMqttClientDisconnectReason::TCP_DISCONNECTED;
   }
+
+  _clear();
 
   for (auto callback : _onDisconnectUserCallbacks) callback(reason);
 
