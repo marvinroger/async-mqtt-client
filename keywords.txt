@@ -18,13 +18,13 @@ setCredentials	KEYWORD2
 setWill	KEYWORD2
 setServer	KEYWORD2
 setSecure	KEYWORD2
-addServerFingerprin	KEYWORD2
+addServerFingerprint	KEYWORD2
 
 onConnect	KEYWORD2
 onDisconnect	KEYWORD2
 onSubscribe	KEYWORD2
 onUnsubscribe	KEYWORD2
-onPublish	KEYWORD2
+onMessage	KEYWORD2
 onPublish	KEYWORD2
 
 connected	KEYWORD2
