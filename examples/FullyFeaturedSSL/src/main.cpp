@@ -1,4 +1,8 @@
 
+// Example project which can be built with SSL enabled or disabled.
+// The espressif8266_stage platform must be installed.
+// Refer to platformio.ini for the build configuration and platform installation.
+
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <Ticker.h>
