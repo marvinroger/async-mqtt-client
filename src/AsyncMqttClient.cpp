@@ -703,13 +703,13 @@ void AsyncMqttClient::disconnect(bool force) {
   }
 }
 
-uint16_t AsyncMqttClient::subscribe(const char* topic, uint8_t qos) {
+uint16_t AsyncMqttClient::subscribe(const char* topic, uint8_t qos, bool dup, uint16_t message_id) {
   if (!_connected) return 0;
 
   char fixedHeader[5];
   fixedHeader[0] = AsyncMqttClientInternals::PacketType.SUBSCRIBE;
   fixedHeader[0] = fixedHeader[0] << 4;
-  fixedHeader[0] = fixedHeader[0] | AsyncMqttClientInternals::HeaderFlag.SUBSCRIBE_RESERVED;
+  fixedHeader[0] = fixedHeader[0] | (dup ? 0x01 : 0x00);
 
   uint16_t topicLength = strlen(topic);
   char topicLengthBytes[2];
@@ -729,7 +729,12 @@ uint16_t AsyncMqttClient::subscribe(const char* topic, uint8_t qos) {
   neededSpace += 1;
   if (_client.space() < neededSpace) return 0;
 
-  uint16_t packetId = _getNextPacketId();
+  uint16_t packetId = 0;
+  if (dup && message_id > 0) {
+	packetId = message_id;
+  } else {
+	packetId = _getNextPacketId();
+  }
   char packetIdBytes[2];
   packetIdBytes[0] = packetId >> 8;
   packetIdBytes[1] = packetId & 0xFF;
