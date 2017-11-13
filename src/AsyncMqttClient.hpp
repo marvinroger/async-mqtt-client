@@ -5,7 +5,13 @@
 
 #include "Arduino.h"
 
+#ifdef ESP32
+#include <AsyncTCP.h>
+#elif defined(ESP8266)
 #include <ESPAsyncTCP.h>
+#else
+#error Platform not supported
+#endif
 
 #if ASYNC_TCP_SSL_ENABLED
 #include <tcp_axtls.h>

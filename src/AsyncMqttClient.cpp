@@ -36,7 +36,11 @@ AsyncMqttClient::AsyncMqttClient()
   _client.onData([](void* obj, AsyncClient* c, void* data, size_t len) { (static_cast<AsyncMqttClient*>(obj))->_onData(c, static_cast<char*>(data), len); }, this);
   _client.onPoll([](void* obj, AsyncClient* c) { (static_cast<AsyncMqttClient*>(obj))->_onPoll(c); }, this);
 
+#ifdef ESP32
+  sprintf(_generatedClientId, "esp32%06x", ESP.getEfuseMac());
+#elif defined(ESP8266)
   sprintf(_generatedClientId, "esp8266%06x", ESP.getChipId());
+#endif
   _clientId = _generatedClientId;
 
   setMaxTopicLength(128);
