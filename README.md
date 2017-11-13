@@ -1,4 +1,4 @@
-Async MQTT client for ESP8266
+Async MQTT client for ESP8266 and ESP32
 =============================
 
 [![Build Status](https://img.shields.io/travis/marvinroger/async-mqtt-client/master.svg?style=flat-square)](https://travis-ci.org/marvinroger/async-mqtt-client)
