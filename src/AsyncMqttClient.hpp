@@ -67,7 +67,7 @@ class AsyncMqttClient {
   void disconnect(bool force = false);
   uint16_t subscribe(const char* topic, uint8_t qos);
   uint16_t unsubscribe(const char* topic);
-  uint16_t publish(const char* topic, uint8_t qos, bool retain, const char* payload = nullptr, size_t length = 0);
+  uint16_t publish(const char* topic, uint8_t qos, bool retain, const char* payload = nullptr, size_t length = 0, bool dup = false, uint16_t message_id = 0);
 
  private:
   AsyncClient _client;

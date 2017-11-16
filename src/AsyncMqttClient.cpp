@@ -786,13 +786,13 @@ uint16_t AsyncMqttClient::unsubscribe(const char* topic) {
   return packetId;
 }
 
-uint16_t AsyncMqttClient::publish(const char* topic, uint8_t qos, bool retain, const char* payload, size_t length) {
+uint16_t AsyncMqttClient::publish(const char* topic, uint8_t qos, bool retain, const char* payload, size_t length, bool dup, uint16_t message_id) {
   if (!_connected) return 0;
 
   char fixedHeader[5];
   fixedHeader[0] = AsyncMqttClientInternals::PacketType.PUBLISH;
   fixedHeader[0] = fixedHeader[0] << 4;
-  fixedHeader[0] = fixedHeader[0] | AsyncMqttClientInternals::HeaderFlag.CONNECT_RESERVED;
+  fixedHeader[0] = fixedHeader[0] | (dup ? 0x01 : 0x00);
   if (retain) fixedHeader[0] |= AsyncMqttClientInternals::HeaderFlag.PUBLISH_RETAIN;
   switch (qos) {
     case 0:
@@ -829,7 +829,11 @@ uint16_t AsyncMqttClient::publish(const char* topic, uint8_t qos, bool retain, c
   uint16_t packetId = 0;
   char packetIdBytes[2];
   if (qos != 0) {
-    packetId = _getNextPacketId();
+    if (dup && message_id > 0) {
+		packetId = message_id;
+	} else {
+		packetId = _getNextPacketId();
+	}
     packetIdBytes[0] = packetId >> 8;
     packetIdBytes[1] = packetId & 0xFF;
   }
