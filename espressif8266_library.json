@@ -1,0 +1,25 @@
+{
+  "name": "AsyncMqttClient",
+  "keywords": "iot, home, automation, async, mqtt, client, esp8266",
+  "description": "An Arduino for ESP8266 asynchronous MQTT client implementation",
+  "authors":
+  {
+    "name": "Marvin ROGER",
+    "url": "https://www.marvinroger.fr"
+  },
+  "repository":
+  {
+    "type": "git",
+    "url": "https://github.com/marvinroger/async-mqtt-client.git"
+  },
+  "version": "0.8.1",
+  "frameworks": "arduino",
+  "platforms": "espressif",
+  "dependencies": [
+    {
+      "name": "ESPAsyncTCP",
+      "version": "^1.0.1"
+    }
+  ]
+}
+
