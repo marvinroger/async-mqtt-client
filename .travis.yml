@@ -7,7 +7,8 @@ cache:
     - "~/.platformio"
 
 env:
-  - PLATFORMIO_CI_SRC=examples/FullyFeatured
+  - PLATFORMIO_CI_SRC=examples/FullyFeatured-ESP8266 PLATFORMIO_CI_EXTRA_ARGS="--board=esp01 --board=nodemcuv2"
+  - PLATFORMIO_CI_SRC=examples/FullyFeatured-ESP32 PLATFORMIO_CI_EXTRA_ARGS="--board=lolin32"
   - CPPLINT=true
 
 install:
@@ -16,4 +17,4 @@ install:
   - platformio lib -g install file://.
 
 script:
-  - if [[ "$CPPLINT" ]]; then make cpplint; else platformio ci --board=esp01 --board=nodemcuv2; fi
+  - if [[ "$CPPLINT" ]]; then make cpplint; else platformio ci $PLATFORMIO_CI_EXTRA_ARGS; fi
