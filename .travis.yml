@@ -12,7 +12,7 @@ env:
   - CPPLINT=true
 
 install:
-  - pip install -U https://github.com/platformio/platformio-core/archive/1b0776167c9dda9d5d30437a101ff0c6b138fafb.zip
+  - pip install -U https://github.com/platformio/platformio-core/archive/develop.zip
   - pip install cpplint
 
 script:
