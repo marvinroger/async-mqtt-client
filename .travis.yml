@@ -13,7 +13,8 @@ env:
 
 install:
   - pip install -U https://github.com/platformio/platformio-core/archive/develop.zip
-  - pip install cpplint
+  - pip install -U cpplint
+  - platformio lib -g install file://.
 
 script:
   - if [[ "$CPPLINT" ]]; then make cpplint; else platformio ci --lib=./ $PLATFORMIO_CI_EXTRA_ARGS; fi
