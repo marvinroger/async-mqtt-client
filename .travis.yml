@@ -17,4 +17,4 @@ install:
   - platformio lib -g install file://.
 
 script:
-  - if [[ "$CPPLINT" ]]; then make cpplint; else platformio ci --lib=./ $PLATFORMIO_CI_EXTRA_ARGS; fi
+  - if [[ "$CPPLINT" ]]; then make cpplint; else platformio ci $PLATFORMIO_CI_EXTRA_ARGS; fi
