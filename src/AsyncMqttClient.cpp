@@ -830,10 +830,11 @@ uint16_t AsyncMqttClient::publish(const char* topic, uint8_t qos, bool retain, c
   char packetIdBytes[2];
   if (qos != 0) {
     if (dup && message_id > 0) {
-		packetId = message_id;
-	} else {
-		packetId = _getNextPacketId();
-	}
+      packetId = message_id;
+    } else {
+      packetId = _getNextPacketId();
+    }
+
     packetIdBytes[0] = packetId >> 8;
     packetIdBytes[1] = packetId & 0xFF;
   }
