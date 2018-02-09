@@ -333,8 +333,6 @@ void AsyncMqttClient::_onConnect(AsyncClient* client) {
 
 void AsyncMqttClient::_onDisconnect(AsyncClient* client) {
   (void)client;
-  AsyncMqttClientDisconnectReason reason;
-
   if (!_disconnectFlagged) {
     AsyncMqttClientDisconnectReason reason;
 
