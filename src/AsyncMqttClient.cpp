@@ -792,7 +792,7 @@ uint16_t AsyncMqttClient::publish(const char* topic, uint8_t qos, bool retain, c
   char fixedHeader[5];
   fixedHeader[0] = AsyncMqttClientInternals::PacketType.PUBLISH;
   fixedHeader[0] = fixedHeader[0] << 4;
-  fixedHeader[0] = fixedHeader[0] | (dup ? 0x01 : 0x00);
+  if (dup) fixedHeader[0] |= AsyncMqttClientInternals::HeaderFlag.PUBLISH_DUP;
   if (retain) fixedHeader[0] |= AsyncMqttClientInternals::HeaderFlag.PUBLISH_RETAIN;
   switch (qos) {
     case 0:
