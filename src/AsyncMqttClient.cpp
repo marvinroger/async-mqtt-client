@@ -37,7 +37,8 @@ AsyncMqttClient::AsyncMqttClient()
   _client.onPoll([](void* obj, AsyncClient* c) { (static_cast<AsyncMqttClient*>(obj))->_onPoll(c); }, this);
 
 #ifdef ESP32
-  sprintf(_generatedClientId, "esp32%06x", ESP.getEfuseMac());
+  uint64_t chipid = ESP.getEfuseMac();
+  sprintf(_generatedClientId, "esp32-%02x%02x%02x%02x%02x%02x", (uint8_t)(chipid), (uint8_t)(chipid>>8), (uint8_t)(chipid>>16), (uint8_t)(chipid>>24), (uint8_t)(chipid>>32), (uint8_t)(chipid>>40));
 #elif defined(ESP8266)
   sprintf(_generatedClientId, "esp8266%06x", ESP.getChipId());
 #endif
@@ -59,6 +60,10 @@ AsyncMqttClient& AsyncMqttClient::setKeepAlive(uint16_t keepAlive) {
 AsyncMqttClient& AsyncMqttClient::setClientId(const char* clientId) {
   _clientId = clientId;
   return *this;
+}
+
+const char* AsyncMqttClient::getClientId() {
+  return _clientId;
 }
 
 AsyncMqttClient& AsyncMqttClient::setCleanSession(bool cleanSession) {
