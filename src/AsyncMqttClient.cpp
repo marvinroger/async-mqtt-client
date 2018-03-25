@@ -704,6 +704,7 @@ void AsyncMqttClient::disconnect(bool force) {
   } else {
     _disconnectFlagged = true;
     _sendDisconnect();
+    _client.send();
   }
 }
 
