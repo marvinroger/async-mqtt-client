@@ -78,9 +78,10 @@ AsyncMqttClient& AsyncMqttClient::setWill(const char* topic, uint8_t qos, bool r
   _willTopic = topic;
   _willQos = qos;
   _willRetain = retain;
-  
-  if(length == 0)
+
+  if (length == 0) {
     _willPayload = payload;
+  }
   else {
     _willPayload = "";
     while (length--) {
@@ -257,7 +258,7 @@ void AsyncMqttClient::_onConnect(AsyncClient* client) {
     willPayloadLengthBytes[1] = willPayloadLength & 0xFF;
   }
 
-  
+
   char usernameLengthBytes[2];
   if ( usernameLength ) {
     usernameLengthBytes[0] = usernameLength >> 8;
