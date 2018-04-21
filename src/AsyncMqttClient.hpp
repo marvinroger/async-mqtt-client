@@ -80,9 +80,8 @@ class AsyncMqttClient {
   uint32_t _lastServerActivity;
   uint32_t _lastPingRequestTime;
 
-  char _generatedClientId[13 + 1];  // esp8266abc123
   IPAddress _ip;
-  const char* _host;
+  String _host;
   bool _useIp;
 #if ASYNC_TCP_SSL_ENABLED
   bool _secure;
@@ -90,12 +89,11 @@ class AsyncMqttClient {
   uint16_t _port;
   uint16_t _keepAlive;
   bool _cleanSession;
-  const char* _clientId;
-  const char* _username;
-  const char* _password;
-  const char* _willTopic;
-  const char* _willPayload;
-  uint16_t _willPayloadLength;
+  String _clientId;
+  String _username;
+  String _password;
+  String _willTopic;
+  String _willPayload;
   uint8_t _willQos;
   bool _willRetain;
 
