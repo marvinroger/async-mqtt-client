@@ -42,6 +42,8 @@ class AsyncMqttClient {
   AsyncMqttClient();
   ~AsyncMqttClient();
 
+  const char* getClientId();
+
   AsyncMqttClient& setKeepAlive(uint16_t keepAlive);
   AsyncMqttClient& setClientId(const char* clientId);
   AsyncMqttClient& setCleanSession(bool cleanSession);
@@ -80,7 +82,7 @@ class AsyncMqttClient {
   uint32_t _lastServerActivity;
   uint32_t _lastPingRequestTime;
 
-  char _generatedClientId[13 + 1];  // esp8266abc123
+  char _generatedClientId[18 + 1];  // esp8266-ab12cb // esp32-ab12cd34ef56
   IPAddress _ip;
   const char* _host;
   bool _useIp;

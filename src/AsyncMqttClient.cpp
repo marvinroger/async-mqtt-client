@@ -37,9 +37,9 @@ AsyncMqttClient::AsyncMqttClient()
   _client.onPoll([](void* obj, AsyncClient* c) { (static_cast<AsyncMqttClient*>(obj))->_onPoll(c); }, this);
 
 #ifdef ESP32
-  sprintf(_generatedClientId, "esp32%06x", ESP.getEfuseMac());
+  sprintf(_generatedClientId, "esp32-%06llx", ESP.getEfuseMac());
 #elif defined(ESP8266)
-  sprintf(_generatedClientId, "esp8266%06x", ESP.getChipId());
+  sprintf(_generatedClientId, "esp8266-%06x", ESP.getChipId());
 #endif
   _clientId = _generatedClientId;
 
@@ -49,6 +49,10 @@ AsyncMqttClient::AsyncMqttClient()
 AsyncMqttClient::~AsyncMqttClient() {
   delete _currentParsedPacket;
   delete[] _parsingInformation.topicBuffer;
+}
+
+const char* AsyncMqttClient::getClientId() {
+  return _clientId;
 }
 
 AsyncMqttClient& AsyncMqttClient::setKeepAlive(uint16_t keepAlive) {
@@ -333,22 +337,20 @@ void AsyncMqttClient::_onConnect(AsyncClient* client) {
 
 void AsyncMqttClient::_onDisconnect(AsyncClient* client) {
   (void)client;
-  AsyncMqttClientDisconnectReason reason;
+  if (!_disconnectFlagged) {
+    AsyncMqttClientDisconnectReason reason;
 
-  if (_connectPacketNotEnoughSpace) {
-    reason = AsyncMqttClientDisconnectReason::ESP8266_NOT_ENOUGH_SPACE;
-  } else if (_tlsBadFingerprint) {
-    reason = AsyncMqttClientDisconnectReason::TLS_BAD_FINGERPRINT;
-  } else {
-    reason = AsyncMqttClientDisconnectReason::TCP_DISCONNECTED;
+    if (_connectPacketNotEnoughSpace) {
+      reason = AsyncMqttClientDisconnectReason::ESP8266_NOT_ENOUGH_SPACE;
+    } else if (_tlsBadFingerprint) {
+      reason = AsyncMqttClientDisconnectReason::TLS_BAD_FINGERPRINT;
+    } else {
+      reason = AsyncMqttClientDisconnectReason::TCP_DISCONNECTED;
+    }
+
+    for (auto callback : _onDisconnectUserCallbacks) callback(reason);
   }
-
   _clear();
-
-  for (auto callback : _onDisconnectUserCallbacks) callback(reason);
-
-  _connectPacketNotEnoughSpace = false;
-  _tlsBadFingerprint = false;
 }
 
 void AsyncMqttClient::_onError(AsyncClient* client, int8_t error) {
@@ -483,6 +485,7 @@ void AsyncMqttClient::_onConnAck(bool sessionPresent, uint8_t connectReturnCode)
   } else {
     _clear();
     for (auto callback : _onDisconnectUserCallbacks) callback(static_cast<AsyncMqttClientDisconnectReason>(connectReturnCode));
+     _disconnectFlagged = true;
   }
 }
 
@@ -646,6 +649,8 @@ void AsyncMqttClient::_sendAcks() {
 }
 
 bool AsyncMqttClient::_sendDisconnect() {
+  if (!_connected) return true;
+
   const uint8_t neededSpace = 2;
 
   if (_client.space() < neededSpace) return false;
