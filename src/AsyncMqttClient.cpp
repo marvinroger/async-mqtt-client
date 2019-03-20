@@ -634,8 +634,16 @@ void AsyncMqttClient::_sendAcks() {
     packetIdBytes[0] = pendingAck.packetId >> 8;
     packetIdBytes[1] = pendingAck.packetId & 0xFF;
 
+#ifdef ESP32
+    std::vector<char> buffer;
+    buffer.reserve(4);
+    std::copy(fixedHeader, fixedHeader + 2, std::back_inserter(buffer));
+    std::copy(packetIdBytes, packetIdBytes + 2, std::back_inserter(buffer));
+    _client.add(buffer.data(), buffer.size());
+#elif defined(ESP8266)
     _client.add(fixedHeader, 2);
     _client.add(packetIdBytes, 2);
+#endif
     _client.send();
 
     _toSendAcks.erase(_toSendAcks.begin() + i);
@@ -739,11 +747,23 @@ uint16_t AsyncMqttClient::subscribe(const char* topic, uint8_t qos) {
   packetIdBytes[0] = packetId >> 8;
   packetIdBytes[1] = packetId & 0xFF;
 
+#ifdef ESP32
+  std::vector<char> buffer;
+  buffer.reserve(neededSpace);
+  std::copy(fixedHeader, fixedHeader + 1 + remainingLengthLength, std::back_inserter(buffer));
+  std::copy(packetIdBytes, packetIdBytes + 2, std::back_inserter(buffer));
+  std::copy(topicLengthBytes, topicLengthBytes + 2, std::back_inserter(buffer));
+  std::copy(topic, topic + topicLength, std::back_inserter(buffer));
+  std::copy(qosByte, qosByte + 1, std::back_inserter(buffer));
+  if (_client.space() < neededSpace) return 0;
+  _client.add(buffer.data(), buffer.size());
+#elif defined(ESP8266)
   _client.add(fixedHeader, 1 + remainingLengthLength);
   _client.add(packetIdBytes, 2);
   _client.add(topicLengthBytes, 2);
   _client.add(topic, topicLength);
   _client.add(qosByte, 1);
+#endif
   _client.send();
   _lastClientActivity = millis();
 
@@ -777,10 +797,21 @@ uint16_t AsyncMqttClient::unsubscribe(const char* topic) {
   packetIdBytes[0] = packetId >> 8;
   packetIdBytes[1] = packetId & 0xFF;
 
+#ifdef ESP32
+  std::vector<char> buffer;
+  buffer.reserve(neededSpace);
+  std::copy(fixedHeader, fixedHeader + 1 + remainingLengthLength, std::back_inserter(buffer));
+  std::copy(packetIdBytes, packetIdBytes + 2, std::back_inserter(buffer));
+  std::copy(topicLengthBytes, topicLengthBytes + 2, std::back_inserter(buffer));
+  std::copy(topic, topic + topicLength, std::back_inserter(buffer));
+  if (_client.space() < neededSpace) return 0;
+  _client.add(buffer.data(), buffer.size());
+#elif defined(ESP8266)
   _client.add(fixedHeader, 1 + remainingLengthLength);
   _client.add(packetIdBytes, 2);
   _client.add(topicLengthBytes, 2);
   _client.add(topic, topicLength);
+#endif
   _client.send();
   _lastClientActivity = millis();
 
@@ -840,11 +871,24 @@ uint16_t AsyncMqttClient::publish(const char* topic, uint8_t qos, bool retain, c
     packetIdBytes[1] = packetId & 0xFF;
   }
 
+#ifdef ESP32
+  std::vector<char> buffer;
+  buffer.reserve(neededSpace);
+  std::copy(fixedHeader, fixedHeader + 1 + remainingLengthLength, std::back_inserter(buffer));
+  std::copy(topicLengthBytes, topicLengthBytes + 2, std::back_inserter(buffer));
+  std::copy(topic, topic + topicLength, std::back_inserter(buffer));
+  if (qos != 0) std::copy(packetIdBytes, packetIdBytes + 2, std::back_inserter(buffer));
+  if (payload != nullptr) std::copy(payload, payload + payloadLength, std::back_inserter(buffer));
+  if (_client.space() < neededSpace) return 0;
+  _client.add(buffer.data(), buffer.size());
+#elif defined(ESP8266)
   _client.add(fixedHeader, 1 + remainingLengthLength);
   _client.add(topicLengthBytes, 2);
   _client.add(topic, topicLength);
   if (qos != 0) _client.add(packetIdBytes, 2);
   if (payload != nullptr) _client.add(payload, payloadLength);
+#endif
+
   _client.send();
   _lastClientActivity = millis();
 
