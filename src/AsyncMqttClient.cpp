@@ -449,11 +449,11 @@ void AsyncMqttClient::_onPoll(AsyncClient* client) {
 
   // if there is too much time the client has sent a ping request without a response, disconnect client to avoid half open connections
   if (_lastPingRequestTime != 0 && (millis() - _lastPingRequestTime) >= (_keepAlive * 1000 * 2)) {
-    disconnect();
+    disconnect(true);
     return;
   }
   else if(millis() - _lastServerActivity >= (_keepAlive * 1000 * 2)) {
-    disconnect();
+    disconnect(true);
     return;
   // send ping to ensure the server will receive at least one message inside keepalive window
   } else if (_lastPingRequestTime == 0 && (millis() - _lastClientActivity) >= (_keepAlive * 1000 * 0.7)) {
@@ -664,7 +664,11 @@ bool AsyncMqttClient::_sendDisconnect() {
 
   SEMAPHORE_TAKE(false);
 
-  if (_client.space() < neededSpace) { SEMAPHORE_GIVE(); return false; }
+  if (_client.space() < neededSpace) { 
+    SEMAPHORE_GIVE();
+    _client.close(true);
+    return false; 
+  }
 
   char fixedHeader[2];
   fixedHeader[0] = AsyncMqttClientInternals::PacketType.DISCONNECT;
