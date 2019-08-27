@@ -667,6 +667,7 @@ bool AsyncMqttClient::_sendDisconnect() {
   if (_client.space() < neededSpace) { 
     SEMAPHORE_GIVE();
     _client.close(true);
+    _clear();
     return false; 
   }
 
@@ -722,6 +723,7 @@ void AsyncMqttClient::disconnect(bool force) {
 
   if (force) {
     _client.close(true);
+    _clear();
   } else {
     _disconnectFlagged = true;
     _sendDisconnect();
