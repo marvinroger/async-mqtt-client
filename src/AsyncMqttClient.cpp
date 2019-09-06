@@ -50,6 +50,9 @@ AsyncMqttClient::AsyncMqttClient()
 AsyncMqttClient::~AsyncMqttClient() {
   delete _currentParsedPacket;
   delete[] _parsingInformation.topicBuffer;
+  for (auto callback : _onMessageUserCallbacks) {
+    delete callback.first;
+  }
 #ifdef ESP32
   vSemaphoreDelete(_xSemaphore);
 #endif
@@ -140,8 +143,14 @@ AsyncMqttClient& AsyncMqttClient::onUnsubscribe(AsyncMqttClientInternals::OnUnsu
   return *this;
 }
 
-AsyncMqttClient& AsyncMqttClient::onMessage(AsyncMqttClientInternals::OnMessageUserCallback callback) {
-  _onMessageUserCallbacks.push_back(callback);
+AsyncMqttClient& AsyncMqttClient::onMessage(AsyncMqttClientInternals::OnMessageUserCallback callback, const char* _userTopic) {
+  onFilteredMessage(callback, _userTopic);
+  return *this;
+}
+
+AsyncMqttClient& AsyncMqttClient::onFilteredMessage(AsyncMqttClientInternals::OnMessageUserCallback callback, const char* _userTopic) {
+  // _onMessageUserCallbacks.push_back(AsyncMqttClientInternals::onFilteredMessageUserCallback(_userTopic, callback));
+  _onMessageUserCallbacks.push_back(AsyncMqttClientInternals::onFilteredMessageUserCallback(strdup(_userTopic), callback));  // leakage issue
   return *this;
 }
 
@@ -520,7 +529,47 @@ void AsyncMqttClient::_onMessage(char* topic, char* payload, uint8_t qos, bool d
     properties.dup = dup;
     properties.retain = retain;
 
-    for (auto callback : _onMessageUserCallbacks) callback(topic, payload, properties, len, index, total);
+    for (auto callback : _onMessageUserCallbacks) {
+      bool          mqttTopicMatch    = false;
+
+      if (strcmp(callback.first, "#") == 0 || strcmp(callback.first, topic) == 0) {
+        mqttTopicMatch  = true;
+      }
+      else {
+        char* messageTopic      = strdup(topic);
+        char* userTopic         = strdup(callback.first);
+        char* messageSubTopic   = strtok_r (messageTopic, "/", &messageTopic);
+        char* userSubTopic      = strtok_r (userTopic, "/", &userTopic);
+
+        while (messageSubTopic != NULL || userSubTopic != NULL) {
+          if (messageSubTopic != NULL && userSubTopic == NULL) {
+            mqttTopicMatch = false;
+            break;
+          }    
+          else if (messageSubTopic == NULL && userSubTopic != NULL) {
+            mqttTopicMatch = false;
+            break;
+          }    
+          else if (mqttTopicMatch && strcmp(userSubTopic, "#") == 0) {
+            mqttTopicMatch = true;
+            break;
+          }                  
+          else if (strcmp(messageSubTopic, userSubTopic) == 0 || strcmp(userSubTopic, "+") == 0) {
+            messageSubTopic = strtok_r (messageTopic, "/", &messageTopic);
+            userSubTopic    = strtok_r (userTopic, "/", &userTopic);
+            mqttTopicMatch  = true;
+          }
+          else {
+            mqttTopicMatch = false;
+            break;
+          }                                                         
+        }
+      }
+
+      if (mqttTopicMatch) {
+        callback.second(topic, payload, properties, len, index, total);
+      }
+    }
   }
 }
 
@@ -763,6 +812,11 @@ uint16_t AsyncMqttClient::subscribe(const char* topic, uint8_t qos) {
 
   SEMAPHORE_GIVE();
   return packetId;
+}
+
+uint16_t AsyncMqttClient::subscribe(const char* topic, uint8_t qos, AsyncMqttClientInternals::OnMessageUserCallback callback) {
+  onFilteredMessage(callback, topic);
+  subscribe(topic, qos);
 }
 
 uint16_t AsyncMqttClient::unsubscribe(const char* topic) {

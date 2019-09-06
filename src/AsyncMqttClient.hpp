@@ -68,13 +68,15 @@ class AsyncMqttClient {
   AsyncMqttClient& onDisconnect(AsyncMqttClientInternals::OnDisconnectUserCallback callback);
   AsyncMqttClient& onSubscribe(AsyncMqttClientInternals::OnSubscribeUserCallback callback);
   AsyncMqttClient& onUnsubscribe(AsyncMqttClientInternals::OnUnsubscribeUserCallback callback);
-  AsyncMqttClient& onMessage(AsyncMqttClientInternals::OnMessageUserCallback callback);
+  AsyncMqttClient& onMessage(AsyncMqttClientInternals::OnMessageUserCallback callback, const char* _userTopic = "#");
+  AsyncMqttClient& onFilteredMessage(AsyncMqttClientInternals::OnMessageUserCallback callback, const char* _userTopic);
   AsyncMqttClient& onPublish(AsyncMqttClientInternals::OnPublishUserCallback callback);
 
   bool connected() const;
   void connect();
   void disconnect(bool force = false);
   uint16_t subscribe(const char* topic, uint8_t qos);
+  uint16_t subscribe(const char* topic, uint8_t qos, AsyncMqttClientInternals::OnMessageUserCallback callback);
   uint16_t unsubscribe(const char* topic);
   uint16_t publish(const char* topic, uint8_t qos, bool retain, const char* payload = nullptr, size_t length = 0, bool dup = false, uint16_t message_id = 0);
 
@@ -116,7 +118,7 @@ class AsyncMqttClient {
   std::vector<AsyncMqttClientInternals::OnDisconnectUserCallback> _onDisconnectUserCallbacks;
   std::vector<AsyncMqttClientInternals::OnSubscribeUserCallback> _onSubscribeUserCallbacks;
   std::vector<AsyncMqttClientInternals::OnUnsubscribeUserCallback> _onUnsubscribeUserCallbacks;
-  std::vector<AsyncMqttClientInternals::OnMessageUserCallback> _onMessageUserCallbacks;
+  std::vector<AsyncMqttClientInternals::onFilteredMessageUserCallback> _onMessageUserCallbacks;
   std::vector<AsyncMqttClientInternals::OnPublishUserCallback> _onPublishUserCallbacks;
 
   AsyncMqttClientInternals::ParsingInformation _parsingInformation;
