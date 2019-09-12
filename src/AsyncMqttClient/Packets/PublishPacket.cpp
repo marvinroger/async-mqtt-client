@@ -17,7 +17,7 @@ PublishPacket::PublishPacket(ParsingInformation* parsingInformation, OnMessageIn
 , _packetId(0)
 , _payloadLength(0)
 , _payloadBytesRead(0)
-,_ptempbuff(0){
+, _ptempbuff(0) {
     _dup = _parsingInformation->packetFlags & HeaderFlag.PUBLISH_DUP;
     _retain = _parsingInformation->packetFlags & HeaderFlag.PUBLISH_RETAIN;
     char qosMasked = _parsingInformation->packetFlags & 0x06;
@@ -83,11 +83,11 @@ void PublishPacket::parsePayload(char* data, size_t len, size_t* currentBytePosi
   if (!_ignore) {
     if(remainToRead < _payloadLength)
   {
-     if(!_ptempbuff){
+     if(!_ptempbuff) {
         _ptempbuff = new char[_payloadLength]; 
         memcpy((_ptempbuff + _payloadBytesRead),data + (*currentBytePosition),remainToRead);
      }
-    else{
+    else {
                 memcpy((_ptempbuff + _payloadBytesRead),data + (*currentBytePosition),remainToRead);
                 if((_payloadBytesRead + remainToRead) == _payloadLength)
                 {
@@ -97,7 +97,7 @@ void PublishPacket::parsePayload(char* data, size_t len, size_t* currentBytePosi
                 }
             }
   }
-  else{
+  else {
     _dataCallback(_parsingInformation->topicBuffer, data + (*currentBytePosition), _qos, _dup, _retain, remainToRead, _payloadBytesRead, _payloadLength, _packetId);
   }
   }
