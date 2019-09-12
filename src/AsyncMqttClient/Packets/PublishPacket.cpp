@@ -79,33 +79,41 @@ void PublishPacket::_preparePayloadHandling(uint32_t payloadLength) {
 
 void PublishPacket::parsePayload(char* data, size_t len, size_t* currentBytePosition) {
   size_t remainToRead = len - (*currentBytePosition);
-  if (_payloadBytesRead + remainToRead > _payloadLength) remainToRead = _payloadLength - _payloadBytesRead;
-  if (!_ignore) {
-    if(remainToRead < _payloadLength)
+  if (_payloadBytesRead + remainToRead > _payloadLength)
+    remainToRead = _payloadLength - _payloadBytesRead;
+
+  if (!_ignore)
   {
-     if(!_ptempbuff) {
-        _ptempbuff = new char[_payloadLength]; 
-        memcpy((_ptempbuff + _payloadBytesRead),data + (*currentBytePosition),remainToRead);
-     }
-    else {
-                memcpy((_ptempbuff + _payloadBytesRead),data + (*currentBytePosition),remainToRead);
-                if((_payloadBytesRead + remainToRead) == _payloadLength)
-                {
-                   _dataCallback(_parsingInformation->topicBuffer, _ptempbuff, _qos, _dup, _retain, (_payloadBytesRead + remainToRead), 0, _payloadLength, _packetId);
-                    delete [] _ptempbuff;
-                  _ptempbuff = NULL;
-                }
-            }
-  }
-  else {
-    _dataCallback(_parsingInformation->topicBuffer, data + (*currentBytePosition), _qos, _dup, _retain, remainToRead, _payloadBytesRead, _payloadLength, _packetId);
-  }
+    if (remainToRead < _payloadLength)
+    {
+      if (!_ptempbuff)
+      {
+        _ptempbuff = new char[_payloadLength];
+        memcpy((_ptempbuff + _payloadBytesRead), data + (*currentBytePosition), remainToRead);
+      }
+      else
+      {
+        memcpy((_ptempbuff + _payloadBytesRead), data + (*currentBytePosition), remainToRead);
+        if ((_payloadBytesRead + remainToRead) == _payloadLength)
+        {
+          _dataCallback(_parsingInformation->topicBuffer, _ptempbuff, _qos, _dup, _retain, (_payloadBytesRead + remainToRead), 0, _payloadLength, _packetId);
+          delete[] _ptempbuff;
+          _ptempbuff = NULL;
+        }
+      }
+    }
+    else
+    {
+      _dataCallback(_parsingInformation->topicBuffer, data + (*currentBytePosition), _qos, _dup, _retain, remainToRead, _payloadBytesRead, _payloadLength, _packetId);
+    }
   }
   _payloadBytesRead += remainToRead;
   (*currentBytePosition) += remainToRead;
 
-  if (_payloadBytesRead == _payloadLength) {
+  if (_payloadBytesRead == _payloadLength)
+  {
     _parsingInformation->bufferState = BufferState::NONE;
-    if (!_ignore) _completeCallback(_packetId, _qos);
+    if (!_ignore)
+      _completeCallback(_packetId, _qos);
   }
 }
