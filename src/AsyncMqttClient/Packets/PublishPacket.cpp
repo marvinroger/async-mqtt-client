@@ -16,7 +16,9 @@ PublishPacket::PublishPacket(ParsingInformation* parsingInformation, OnMessageIn
 , _packetIdMsb(0)
 , _packetId(0)
 , _payloadLength(0)
-, _payloadBytesRead(0) {
+, _payloadBytesRead(0)
+,_ptempbuff(0)
+,_tempbuffcursor(0){
     _dup = _parsingInformation->packetFlags & HeaderFlag.PUBLISH_DUP;
     _retain = _parsingInformation->packetFlags & HeaderFlag.PUBLISH_RETAIN;
     char qosMasked = _parsingInformation->packetFlags & 0x06;
@@ -79,7 +81,25 @@ void PublishPacket::_preparePayloadHandling(uint32_t payloadLength) {
 void PublishPacket::parsePayload(char* data, size_t len, size_t* currentBytePosition) {
   size_t remainToRead = len - (*currentBytePosition);
   if (_payloadBytesRead + remainToRead > _payloadLength) remainToRead = _payloadLength - _payloadBytesRead;
-
+  if(remainToRead < _payloadLength)
+  {
+     if(!_ptempbuff){
+        _ptempbuff = new char[_payloadLength]; 
+        _tempbuffcursor = 0;
+        memcpy((_ptempbuff + index),payload,len);
+        _tempbuffcursor += len;
+     }
+    else{
+                memcpy((_ptempbuff + index),payload,len);
+                _tempbuffcursor += len;
+                if(_tempbuffcursor == _payloadLength)
+                {
+                    callback(topic,_ptempbuff,properties,_tempbuffcursor,0,total);
+                    delete [] _ptempbuff;
+                  _ptempbuff = NULL;
+                }
+            }
+  }
   if (!_ignore) _dataCallback(_parsingInformation->topicBuffer, data + (*currentBytePosition), _qos, _dup, _retain, remainToRead, _payloadBytesRead, _payloadLength, _packetId);
   _payloadBytesRead += remainToRead;
   (*currentBytePosition) += remainToRead;
