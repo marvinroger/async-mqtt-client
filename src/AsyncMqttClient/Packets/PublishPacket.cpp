@@ -87,8 +87,7 @@ void PublishPacket::parsePayload(char* data, size_t len, size_t* currentBytePosi
       if (!_ptempbuff) {
         _ptempbuff = new char[_payloadLength];
         memcpy(&_ptempbuff[_payloadBytesRead], &data[(*currentBytePosition)], remainToRead);
-      }
-      else {
+      } else {
         memcpy(&_ptempbuff[_payloadBytesRead], &data[(*currentBytePosition)], remainToRead);
         if ((_payloadBytesRead + remainToRead) == _payloadLength) {
           _dataCallback(_parsingInformation->topicBuffer, _ptempbuff, _qos, _dup, _retain, _payloadLength, 0, _payloadLength, _packetId);
@@ -96,8 +95,7 @@ void PublishPacket::parsePayload(char* data, size_t len, size_t* currentBytePosi
           _ptempbuff = NULL;
         }
       }
-    }
-    else {
+    } else {
       _dataCallback(_parsingInformation->topicBuffer, &data[(*currentBytePosition)], _qos, _dup, _retain, remainToRead, _payloadBytesRead, _payloadLength, _packetId);
     }
   }
