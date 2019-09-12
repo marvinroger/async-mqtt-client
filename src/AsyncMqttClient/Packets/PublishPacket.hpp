@@ -34,5 +34,7 @@ class PublishPacket : public Packet {
   uint16_t _packetId;
   uint32_t _payloadLength;
   uint32_t _payloadBytesRead;
+  char*    _ptempbuff;
+  uint32_t    _tempbuffcursor;
 };
 }  // namespace AsyncMqttClientInternals
