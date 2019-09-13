@@ -89,7 +89,7 @@ void PublishPacket::parsePayload(char* data, size_t len, size_t* currentBytePosi
           _ignore = true;
           return;
         }
-        memset(_ptempbuff,0,_payloadLength + 1);
+        memset(_ptempbuff, 0, _payloadLength + 1);
         memcpy(&_ptempbuff[_payloadBytesRead], &data[(*currentBytePosition)], remainToRead);
       } else {
         memcpy(&_ptempbuff[_payloadBytesRead], &data[(*currentBytePosition)], remainToRead);
