@@ -311,12 +311,26 @@ void AsyncMqttClient::_onConnect(AsyncClient* client) {
   }
 
   _client.add(fixedHeader, 1 + remainingLengthLength);
-  _client.add(protocolNameLengthBytes, 2);
-  _client.add("MQTT", protocolNameLength);
-  _client.add(protocolLevel, 1);
-  _client.add(connectFlags, 1);
-  _client.add(keepAliveBytes, 2);
-  _client.add(clientIdLengthBytes, 2);
+
+  // Using a sendbuffer to fix bug setwill on SSL not working
+  char sendbuffer[12];
+  sendbuffer[0] = protocolNameLengthBytes[0];
+  sendbuffer[1] = protocolNameLengthBytes[1];
+
+  sendbuffer[2] = 'M';
+  sendbuffer[3] = 'Q';
+  sendbuffer[4] = 'T';
+  sendbuffer[5] = 'T';
+  
+  sendbuffer[6] = protocolLevel[0];
+  sendbuffer[7] = connectFlags[0];
+  sendbuffer[8] = keepAliveBytes[0];
+  sendbuffer[9] = keepAliveBytes[1];
+  sendbuffer[10] = clientIdLengthBytes[0];
+  sendbuffer[11] = clientIdLengthBytes[1];
+
+  _client.add(sendbuffer, 12);
+
   _client.add(_clientId, clientIdLength);
   if (_willTopic != nullptr) {
     _client.add(willTopicLengthBytes, 2);
