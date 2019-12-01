@@ -356,6 +356,8 @@ void AsyncMqttClient::_onDisconnect(AsyncClient* client) {
   (void)client;
   AsyncMqttClientDisconnectReason reason;
 
+  _clear();
+
   if (_connectPacketNotEnoughSpace) {
     reason = AsyncMqttClientDisconnectReason::ESP8266_NOT_ENOUGH_SPACE;
   } else if (_tlsBadFingerprint) {
@@ -364,7 +366,6 @@ void AsyncMqttClient::_onDisconnect(AsyncClient* client) {
     reason = AsyncMqttClientDisconnectReason::TCP_DISCONNECTED;
   }
   for (auto callback : _onDisconnectUserCallbacks) callback(reason);
-  _clear();
 }
 
 void AsyncMqttClient::_onError(AsyncClient* client, int8_t error) {
