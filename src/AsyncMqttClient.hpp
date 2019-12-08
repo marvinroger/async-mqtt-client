@@ -78,18 +78,20 @@ class AsyncMqttClient {
   uint16_t unsubscribe(const char* topic);
   uint16_t publish(const char* topic, uint8_t qos, bool retain, const char* payload = nullptr, size_t length = 0, bool dup = false, uint16_t message_id = 0);
 
+  const char* getClientId();
+
  private:
   AsyncClient _client;
 
   bool _connected;
   bool _connectPacketNotEnoughSpace;
-  bool _disconnectFlagged;
+  bool _disconnectOnPoll;
   bool _tlsBadFingerprint;
   uint32_t _lastClientActivity;
   uint32_t _lastServerActivity;
   uint32_t _lastPingRequestTime;
 
-  char _generatedClientId[13 + 1];  // esp8266abc123
+  char _generatedClientId[18 + 1];  // esp8266-abc123 and esp32-abcdef123456 
   IPAddress _ip;
   const char* _host;
   bool _useIp;
