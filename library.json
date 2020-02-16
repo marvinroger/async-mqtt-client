@@ -18,12 +18,10 @@
   "dependencies": [
     {
       "name": "ESPAsyncTCP",
-      "version": "1.2.0",
       "platforms": "espressif8266"
     },
     {
       "name": "AsyncTCP",
-      "version": "^1.0.0",
       "platforms": "espressif32"
     }
   ]
