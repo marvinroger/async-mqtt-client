@@ -82,8 +82,8 @@ class AsyncMqttClient {
 
  private:
   AsyncClient _client;
-  bool _lockMutiConnections;
   bool _connected;
+  bool _lockMutiConnections;
   bool _connectPacketNotEnoughSpace;
   bool _disconnectOnPoll;
   bool _tlsBadFingerprint;

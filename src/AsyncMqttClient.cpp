@@ -44,7 +44,6 @@ AsyncMqttClient::AsyncMqttClient()
   sprintf(_generatedClientId, "esp8266-%06x", ESP.getChipId());
 #endif
   _clientId = _generatedClientId;
-
   setMaxTopicLength(128);
 }
 
