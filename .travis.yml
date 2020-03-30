@@ -9,6 +9,7 @@ cache:
 env:
   - PLATFORMIO_CI_SRC=examples/FullyFeatured-ESP8266 PLATFORMIO_CI_EXTRA_ARGS="--board=esp01 --board=nodemcuv2"
   - PLATFORMIO_CI_SRC=examples/FullyFeatured-ESP32 PLATFORMIO_CI_EXTRA_ARGS="--board=lolin32"
+  - PLATFORMIO_CI_SRC=examples/LargePayloads PLATFORMIO_CI_EXTRA_ARGS="--board=nodemcuv2"
   - CPPLINT=true
 
 install:

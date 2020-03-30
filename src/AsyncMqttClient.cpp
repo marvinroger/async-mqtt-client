@@ -27,7 +27,11 @@ AsyncMqttClient::AsyncMqttClient()
 , _parsingInformation { .bufferState = AsyncMqttClientInternals::BufferState::NONE }
 , _currentParsedPacket(nullptr)
 , _remainingLengthBufferPosition(0)
-, _nextPacketId(1) {
+, _nextPacketId(1)
+, _isSendingLargePayload(false)
+, _largePayloadLength(0)
+, _largePayloadIndex(0)
+, _largePayloadHandler(nullptr) {
   _client.onConnect([](void* obj, AsyncClient* c) { (static_cast<AsyncMqttClient*>(obj))->_onConnect(c); }, this);
   _client.onDisconnect([](void* obj, AsyncClient* c) { (static_cast<AsyncMqttClient*>(obj))->_onDisconnect(c); }, this);
   _client.onError([](void* obj, AsyncClient* c, int8_t error) { (static_cast<AsyncMqttClient*>(obj))->_onError(c, error); }, this);
@@ -157,6 +161,8 @@ void AsyncMqttClient::_freeCurrentParsedPacket() {
 
 void AsyncMqttClient::_clear() {
   _lastPingRequestTime = 0;
+  _isSendingLargePayload = false;
+  _largePayloadIndex = 0;
   _connected = false;
   _disconnectOnPoll = false;
   _connectPacketNotEnoughSpace = false;
@@ -460,6 +466,18 @@ void AsyncMqttClient::_onData(AsyncClient* client, char* data, size_t len) {
 
 void AsyncMqttClient::_onPoll(AsyncClient* client) {
   if (!_connected) return;
+
+  if (_isSendingLargePayload && _client.canSend()) {
+    // try to write as much as possible
+    size_t remainingPayloadLength = _largePayloadLength - _largePayloadIndex;
+    _largePayloadIndex += _client.write(_largePayloadHandler(_largePayloadIndex), remainingPayloadLength);
+    //_client.send();
+    if (_largePayloadIndex == _largePayloadLength) {
+      _isSendingLargePayload = false;
+    }
+    _lastClientActivity = millis();
+    return;
+  }
 
   // if there is too much time the client has sent a ping request without a response, disconnect client to avoid half open connections
   if (_lastPingRequestTime != 0 && (millis() - _lastPingRequestTime) >= (_keepAlive * 1000 * 2)) {
@@ -880,6 +898,73 @@ uint16_t AsyncMqttClient::publish(const char* topic, uint8_t qos, bool retain, c
   if (qos != 0) _client.add(packetIdBytes, 2);
   if (payload != nullptr) _client.add(payload, payloadLength);
   _client.send();
+  _lastClientActivity = millis();
+
+  SEMAPHORE_GIVE();
+  if (qos != 0) {
+    return packetId;
+  } else {
+    return 1;
+  }
+}
+
+uint16_t AsyncMqttClient::publish(const char* topic, uint8_t qos, bool retain, AsyncMqttClientInternals::PayloadHandler handler, size_t length, bool dup, uint16_t message_id) {
+  if (!_connected) return 0;
+
+  char fixedHeader[5];
+  fixedHeader[0] = AsyncMqttClientInternals::PacketType.PUBLISH;
+  fixedHeader[0] = fixedHeader[0] << 4;
+  if (dup) fixedHeader[0] |= AsyncMqttClientInternals::HeaderFlag.PUBLISH_DUP;
+  if (retain) fixedHeader[0] |= AsyncMqttClientInternals::HeaderFlag.PUBLISH_RETAIN;
+  switch (qos) {
+    case 0:
+      fixedHeader[0] |= AsyncMqttClientInternals::HeaderFlag.PUBLISH_QOS0;
+      break;
+    case 1:
+      fixedHeader[0] |= AsyncMqttClientInternals::HeaderFlag.PUBLISH_QOS1;
+      break;
+    case 2:
+      fixedHeader[0] |= AsyncMqttClientInternals::HeaderFlag.PUBLISH_QOS2;
+      break;
+  }
+
+  uint16_t topicLength = strlen(topic);
+  char topicLengthBytes[2];
+  topicLengthBytes[0] = topicLength >> 8;
+  topicLengthBytes[1] = topicLength & 0xFF;
+
+  _largePayloadLength = length;
+  uint32_t remainingLength = 2 + topicLength + _largePayloadLength;
+  if (qos != 0) remainingLength += 2;
+  uint8_t remainingLengthLength = AsyncMqttClientInternals::Helpers::encodeRemainingLength(remainingLength, fixedHeader + 1);
+
+  SEMAPHORE_TAKE(0);
+
+  uint16_t packetId = 0;
+  char packetIdBytes[2];
+  if (qos != 0) {
+    if (dup && message_id > 0) {
+      packetId = message_id;
+    } else {
+      packetId = _getNextPacketId();
+    }
+
+    packetIdBytes[0] = packetId >> 8;
+    packetIdBytes[1] = packetId & 0xFF;
+  }
+
+  size_t written = _client.add(fixedHeader, 1 + remainingLengthLength);
+  written += _client.add(topicLengthBytes, 2);
+  written += _client.add(topic, topicLength);
+  if (qos != 0) {
+    written += _client.add(packetIdBytes, 2);
+  }
+
+  _largePayloadHandler = handler;
+  // try to write as much as possible
+  _largePayloadIndex = _client.add(_largePayloadHandler(_largePayloadIndex), _largePayloadLength);
+  _client.send();
+  _isSendingLargePayload = true;
   _lastClientActivity = millis();
 
   SEMAPHORE_GIVE();
