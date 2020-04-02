@@ -15,13 +15,15 @@ extern const uint8_t image[3039];
 AsyncMqttClient mqttClient;
 Ticker mqttReconnectTimer;
 bool sendFile = false;
-uint32_t lastMillis = 0;
 
 WiFiEventHandler wifiConnectHandler;
 WiFiEventHandler wifiDisconnectHandler;
 Ticker wifiReconnectTimer;
 
-const char* readLongFile(size_t index) {
+const char* readLongFile(size_t index, size_t len) {
+  // you can use 'index' and 'len' to fetch data. 'len' is the maximum
+  // amount that *could* be written. Reading will stop once the total amount
+  // reached the payload length (as given in mqttClient.publish(...)).
   return reinterpret_cast<const char*>(&image[index]);
 }
 
@@ -51,7 +53,7 @@ void onMqttPublish(uint16_t packetId) {
 
 void connectToWifi() {
   Serial.println("Connecting to Wi-Fi...");
-  WiFi.begin("WIFI_SSID", "WIFI_PASSWORD");
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 }
 
 void onWifiConnect(const WiFiEventStationModeGotIP& event) {
@@ -85,7 +87,7 @@ void setup() {
 
 void loop() {
   delay(1);
-  if (millis() - lastMillis > 10000 && sendFile) {
+  if (millis() > 10000 && sendFile) {
     sendFile = false;
     mqttClient.publish("testtopic/image", 0, false, readLongFile, 3039);
   }

@@ -470,8 +470,9 @@ void AsyncMqttClient::_onPoll(AsyncClient* client) {
   if (_isSendingLargePayload && _client.canSend()) {
     // try to write as much as possible
     size_t remainingPayloadLength = _largePayloadLength - _largePayloadIndex;
-    _largePayloadIndex += _client.write(_largePayloadHandler(_largePayloadIndex), remainingPayloadLength);
-    //_client.send();
+    SEMAPHORE_TAKE(false);
+    _largePayloadIndex += _client.write(_largePayloadHandler(_largePayloadIndex, _client.space()), remainingPayloadLength);
+    SEMAPHORE_GIVE();
     if (_largePayloadIndex == _largePayloadLength) {
       _isSendingLargePayload = false;
     }
@@ -753,7 +754,7 @@ void AsyncMqttClient::disconnect(bool force) {
 }
 
 uint16_t AsyncMqttClient::subscribe(const char* topic, uint8_t qos) {
-  if (!_connected) return 0;
+  if (!_connected || _isSendingLargePayload) return 0;
 
   char fixedHeader[5];
   fixedHeader[0] = AsyncMqttClientInternals::PacketType.SUBSCRIBE;
@@ -798,7 +799,7 @@ uint16_t AsyncMqttClient::subscribe(const char* topic, uint8_t qos) {
 }
 
 uint16_t AsyncMqttClient::unsubscribe(const char* topic) {
-  if (!_connected) return 0;
+  if (!_connected || _isSendingLargePayload) return 0;
 
   char fixedHeader[5];
   fixedHeader[0] = AsyncMqttClientInternals::PacketType.UNSUBSCRIBE;
@@ -838,7 +839,7 @@ uint16_t AsyncMqttClient::unsubscribe(const char* topic) {
 }
 
 uint16_t AsyncMqttClient::publish(const char* topic, uint8_t qos, bool retain, const char* payload, size_t length, bool dup, uint16_t message_id) {
-  if (!_connected) return 0;
+  if (!_connected || _isSendingLargePayload) return 0;
 
   char fixedHeader[5];
   fixedHeader[0] = AsyncMqttClientInternals::PacketType.PUBLISH;
@@ -909,7 +910,7 @@ uint16_t AsyncMqttClient::publish(const char* topic, uint8_t qos, bool retain, c
 }
 
 uint16_t AsyncMqttClient::publish(const char* topic, uint8_t qos, bool retain, AsyncMqttClientInternals::PayloadHandler handler, size_t length, bool dup, uint16_t message_id) {
-  if (!_connected) return 0;
+  if (!_connected || _isSendingLargePayload) return 0;
 
   char fixedHeader[5];
   fixedHeader[0] = AsyncMqttClientInternals::PacketType.PUBLISH;
@@ -938,7 +939,14 @@ uint16_t AsyncMqttClient::publish(const char* topic, uint8_t qos, bool retain, A
   if (qos != 0) remainingLength += 2;
   uint8_t remainingLengthLength = AsyncMqttClientInternals::Helpers::encodeRemainingLength(remainingLength, fixedHeader + 1);
 
+  size_t neededSpace = 0;
+  neededSpace += 1 + remainingLengthLength;
+  neededSpace += 2;
+  neededSpace += topicLength;
+  if (qos != 0) neededSpace += 2;
+
   SEMAPHORE_TAKE(0);
+  if (_client.space() < neededSpace) { SEMAPHORE_GIVE(); return 0; }
 
   uint16_t packetId = 0;
   char packetIdBytes[2];
@@ -962,7 +970,7 @@ uint16_t AsyncMqttClient::publish(const char* topic, uint8_t qos, bool retain, A
 
   _largePayloadHandler = handler;
   // try to write as much as possible
-  _largePayloadIndex = _client.add(_largePayloadHandler(_largePayloadIndex), _largePayloadLength);
+  _largePayloadIndex = _client.add(_largePayloadHandler(_largePayloadIndex, _client.space()), _largePayloadLength);
   _client.send();
   _isSendingLargePayload = true;
   _lastClientActivity = millis();

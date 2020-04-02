@@ -13,7 +13,7 @@ typedef std::function<void(uint16_t packetId, uint8_t qos)> OnSubscribeUserCallb
 typedef std::function<void(uint16_t packetId)> OnUnsubscribeUserCallback;
 typedef std::function<void(char* topic, char* payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total)> OnMessageUserCallback;
 typedef std::function<void(uint16_t packetId)> OnPublishUserCallback;
-typedef std::function<const char*(size_t index)> PayloadHandler;
+typedef std::function<const char*(size_t index, size_t len)> PayloadHandler;
 
 // internal callbacks
 typedef std::function<void(bool sessionPresent, uint8_t connectReturnCode)> OnConnAckInternalCallback;
