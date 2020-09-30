@@ -1,0 +1,5 @@
+
+COMPONENT_ADD_INCLUDEDIRS :=  src/
+COMPONENT_SRCDIRS := src/
+COMPONENT_SRCDIRS += src/AsyncMqttClient
+COMPONENT_SRCDIRS += src/AsyncMqttClient/Packets
