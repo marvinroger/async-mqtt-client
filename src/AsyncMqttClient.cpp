@@ -24,7 +24,13 @@ AsyncMqttClient::AsyncMqttClient()
 , _willPayloadLength(0)
 , _willQos(0)
 , _willRetain(false)
-, _parsingInformation { .bufferState = AsyncMqttClientInternals::BufferState::NONE }
+, _parsingInformation { .bufferState = AsyncMqttClientInternals::BufferState::NONE,
+  .maxTopicLength = 0,
+  .topicBuffer = NULL,
+  .packetType = 0,
+  .packetFlags = 0,
+  .remainingLength = 0
+  }
 , _currentParsedPacket(nullptr)
 , _remainingLengthBufferPosition(0)
 , _nextPacketId(1) {
