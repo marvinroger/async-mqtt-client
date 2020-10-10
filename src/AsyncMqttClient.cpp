@@ -830,8 +830,10 @@ uint16_t AsyncMqttClient::subscribe(const char* topic, uint8_t qos) {
 }
 
 uint16_t AsyncMqttClient::subscribe(const char* topic, uint8_t qos, AsyncMqttClientInternals::OnMessageUserCallback callback) {
+  if (!_connected) return 0;
   onFilteredMessage(callback, topic);
   subscribe(topic, qos);
+  return 0;
 }
 
 uint16_t AsyncMqttClient::unsubscribe(const char* topic) {
