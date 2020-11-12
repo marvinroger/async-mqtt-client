@@ -329,23 +329,23 @@ void AsyncMqttClient::_onConnect(AsyncClient* client) {
   sendbuffer[10] = clientIdLengthBytes[0];
   sendbuffer[11] = clientIdLengthBytes[1];
 
-  _client.add(sendbuffer, 12);
+  _client.add(sendbuffer, 12, 0x03);
 
-  _client.add(_clientId, clientIdLength);
+  _client.add(_clientId, clientIdLength, 0x03);
   if (_willTopic != nullptr) {
-    _client.add(willTopicLengthBytes, 2);
-    _client.add(_willTopic, willTopicLength);
+    _client.add(willTopicLengthBytes, 2, 0x03);
+    _client.add(_willTopic, willTopicLength, 0x03);
 
-    _client.add(willPayloadLengthBytes, 2);
-    if (_willPayload != nullptr) _client.add(_willPayload, willPayloadLength);
+    _client.add(willPayloadLengthBytes, 2, 0x03);
+    if (_willPayload != nullptr) _client.add(_willPayload, willPayloadLength, 0x03);
   }
   if (_username != nullptr) {
-    _client.add(usernameLengthBytes, 2);
-    _client.add(_username, usernameLength);
+    _client.add(usernameLengthBytes, 2, 0x03);
+    _client.add(_username, usernameLength, 0x03);
   }
   if (_password != nullptr) {
-    _client.add(passwordLengthBytes, 2);
-    _client.add(_password, passwordLength);
+    _client.add(passwordLengthBytes, 2, 0x03);
+    _client.add(_password, passwordLength, 0x01);
   }
   _client.send();
   _lastClientActivity = millis();
@@ -627,7 +627,7 @@ bool AsyncMqttClient::_sendPing() {
   SEMAPHORE_TAKE(false);
   if (_client.space() < neededSpace) { SEMAPHORE_GIVE(); return false; }
 
-  _client.add(fixedHeader, 2);
+  _client.add(fixedHeader, 2, 0x01);
   _client.send();
   _lastClientActivity = millis();
   _lastPingRequestTime = millis();
@@ -655,8 +655,8 @@ void AsyncMqttClient::_sendAcks() {
     packetIdBytes[0] = pendingAck.packetId >> 8;
     packetIdBytes[1] = pendingAck.packetId & 0xFF;
 
-    _client.add(fixedHeader, 2);
-    _client.add(packetIdBytes, 2);
+    _client.add(fixedHeader, 2, 0x03);
+    _client.add(packetIdBytes, 2, 0x01);
     _client.send();
 
     _toSendAcks.erase(_toSendAcks.begin() + i);
@@ -682,7 +682,7 @@ bool AsyncMqttClient::_sendDisconnect() {
   fixedHeader[0] = fixedHeader[0] | AsyncMqttClientInternals::HeaderFlag.DISCONNECT_RESERVED;
   fixedHeader[1] = 0;
 
-  _client.add(fixedHeader, 2);
+  _client.add(fixedHeader, 2, 0x01);
   _client.send();
   _client.close(true);
 
@@ -767,11 +767,11 @@ uint16_t AsyncMqttClient::subscribe(const char* topic, uint8_t qos) {
   packetIdBytes[0] = packetId >> 8;
   packetIdBytes[1] = packetId & 0xFF;
 
-  _client.add(fixedHeader, 1 + remainingLengthLength);
-  _client.add(packetIdBytes, 2);
-  _client.add(topicLengthBytes, 2);
-  _client.add(topic, topicLength);
-  _client.add(qosByte, 1);
+  _client.add(fixedHeader, 1 + remainingLengthLength, 0x03);
+  _client.add(packetIdBytes, 2, 0x03);
+  _client.add(topicLengthBytes, 2, 0x03);
+  _client.add(topic, topicLength, 0x03);
+  _client.add(qosByte, 1, 0x01);
   _client.send();
   _lastClientActivity = millis();
 
@@ -808,10 +808,10 @@ uint16_t AsyncMqttClient::unsubscribe(const char* topic) {
   packetIdBytes[0] = packetId >> 8;
   packetIdBytes[1] = packetId & 0xFF;
 
-  _client.add(fixedHeader, 1 + remainingLengthLength);
-  _client.add(packetIdBytes, 2);
-  _client.add(topicLengthBytes, 2);
-  _client.add(topic, topicLength);
+  _client.add(fixedHeader, 1 + remainingLengthLength, 0x03);
+  _client.add(packetIdBytes, 2, 0x03);
+  _client.add(topicLengthBytes, 2, 0x03);
+  _client.add(topic, topicLength, 0x01);
   _client.send();
   _lastClientActivity = millis();
 
@@ -874,11 +874,19 @@ uint16_t AsyncMqttClient::publish(const char* topic, uint8_t qos, bool retain, c
     packetIdBytes[1] = packetId & 0xFF;
   }
 
-  _client.add(fixedHeader, 1 + remainingLengthLength);
-  _client.add(topicLengthBytes, 2);
-  _client.add(topic, topicLength);
-  if (qos != 0) _client.add(packetIdBytes, 2);
-  if (payload != nullptr) _client.add(payload, payloadLength);
+  _client.add(fixedHeader, 1 + remainingLengthLength, 0x03);
+  _client.add(topicLengthBytes, 2, 0x03);
+  if (qos != 0 || payload != nullptr) {
+    _client.add(topic, topicLength, 0x03);
+  } else {
+    _client.add(topic, topicLength, 0x01);
+  }
+  if (qos != 0 && payload != nullptr) {
+    _client.add(packetIdBytes, 2, 0x03);
+  } else {
+    _client.add(packetIdBytes, 2, 0x01);
+  }
+  if (payload != nullptr) _client.add(payload, payloadLength, 0x01);
   _client.send();
   _lastClientActivity = millis();
 
