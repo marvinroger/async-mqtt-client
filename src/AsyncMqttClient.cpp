@@ -391,6 +391,7 @@ void AsyncMqttClient::_onData(AsyncClient* client, char* data, size_t len) {
   (void)client;
   size_t currentBytePosition = 0;
   char currentByte;
+  _lastServerActivity = millis();
   do {
     switch (_parsingInformation.bufferState) {
       case AsyncMqttClientInternals::BufferState::NONE:
@@ -398,7 +399,6 @@ void AsyncMqttClient::_onData(AsyncClient* client, char* data, size_t len) {
         _parsingInformation.packetType = currentByte >> 4;
         _parsingInformation.packetFlags = (currentByte << 4) >> 4;
         _parsingInformation.bufferState = AsyncMqttClientInternals::BufferState::REMAINING_LENGTH;
-        _lastServerActivity = millis();
         switch (_parsingInformation.packetType) {
           case AsyncMqttClientInternals::PacketType.CONNACK:
             _currentParsedPacket = new AsyncMqttClientInternals::ConnAckPacket(&_parsingInformation, std::bind(&AsyncMqttClient::_onConnAck, this, std::placeholders::_1, std::placeholders::_2));
