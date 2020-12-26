@@ -310,7 +310,11 @@ void AsyncMqttClient::_onConnect(AsyncClient* client) {
     return;
   }
 
-  _client.add(fixedHeader, 1 + remainingLengthLength);
+  char* buff = new char[neededSpace];
+  size_t pos = 0;
+
+  memcpy(&buff[pos], fixedHeader, 1 + remainingLengthLength);
+  pos += 1 + remainingLengthLength;
 
   // Using a sendbuffer to fix bug setwill on SSL not working
   char sendbuffer[12];
@@ -329,24 +333,37 @@ void AsyncMqttClient::_onConnect(AsyncClient* client) {
   sendbuffer[10] = clientIdLengthBytes[0];
   sendbuffer[11] = clientIdLengthBytes[1];
 
-  _client.add(sendbuffer, 12);
+  memcpy(&buff[pos], sendbuffer, 12);
+  pos += 12;
 
-  _client.add(_clientId, clientIdLength);
+  memcpy(&buff[pos], _clientId, clientIdLength);
+  pos += clientIdLength;
   if (_willTopic != nullptr) {
-    _client.add(willTopicLengthBytes, 2);
-    _client.add(_willTopic, willTopicLength);
+    memcpy(&buff[pos], willTopicLengthBytes, 2);
+    pos += 2;
+    memcpy(&buff[pos], _willTopic, willTopicLength);
+    pos += willTopicLength;
 
-    _client.add(willPayloadLengthBytes, 2);
-    if (_willPayload != nullptr) _client.add(_willPayload, willPayloadLength);
+    memcpy(&buff[pos], willPayloadLengthBytes, 2);
+    pos += 2;
+    if (_willPayload != nullptr) {
+      memcpy(&buff[pos], _willPayload, willPayloadLength);
+      pos += willPayloadLength;
+    }
   }
   if (_username != nullptr) {
-    _client.add(usernameLengthBytes, 2);
-    _client.add(_username, usernameLength);
+    memcpy(&buff[pos], usernameLengthBytes, 2);
+    pos += 2;
+    memcpy(&buff[pos], _username, usernameLength);
+    pos += usernameLength;
   }
   if (_password != nullptr) {
-    _client.add(passwordLengthBytes, 2);
-    _client.add(_password, passwordLength);
+    memcpy(&buff[pos], passwordLengthBytes, 2);
+    pos += 2;
+    memcpy(&buff[pos], _password, passwordLength);
+    pos += passwordLength;
   }
+  _client.add(buff, pos, ASYNC_WRITE_FLAG_COPY);
   _client.send();
   _lastClientActivity = millis();
   SEMAPHORE_GIVE();
@@ -627,7 +644,7 @@ bool AsyncMqttClient::_sendPing() {
   SEMAPHORE_TAKE(false);
   if (_client.space() < neededSpace) { SEMAPHORE_GIVE(); return false; }
 
-  _client.add(fixedHeader, 2);
+  _client.add(fixedHeader, 2, ASYNC_WRITE_FLAG_COPY);
   _client.send();
   _lastClientActivity = millis();
   _lastPingRequestTime = millis();
@@ -643,6 +660,9 @@ void AsyncMqttClient::_sendAcks() {
   for (size_t i = 0; i < _toSendAcks.size(); i++) {
     if (_client.space() < neededAckSpace) break;
 
+    char* buff = new char[neededAckSpace];
+    size_t pos = 0;
+
     AsyncMqttClientInternals::PendingAck pendingAck = _toSendAcks[i];
 
     char fixedHeader[2];
@@ -655,8 +675,11 @@ void AsyncMqttClient::_sendAcks() {
     packetIdBytes[0] = pendingAck.packetId >> 8;
     packetIdBytes[1] = pendingAck.packetId & 0xFF;
 
-    _client.add(fixedHeader, 2);
-    _client.add(packetIdBytes, 2);
+    memcpy(&buff[pos], fixedHeader, 2);
+    pos += 2;
+    memcpy(&buff[pos], packetIdBytes, 2);
+    pos += 2;
+    _client.add(buff, pos, ASYNC_WRITE_FLAG_COPY);
     _client.send();
 
     _toSendAcks.erase(_toSendAcks.begin() + i);
@@ -682,7 +705,7 @@ bool AsyncMqttClient::_sendDisconnect() {
   fixedHeader[0] = fixedHeader[0] | AsyncMqttClientInternals::HeaderFlag.DISCONNECT_RESERVED;
   fixedHeader[1] = 0;
 
-  _client.add(fixedHeader, 2);
+  _client.add(fixedHeader, 2, ASYNC_WRITE_FLAG_COPY);
   _client.send();
   _client.close(true);
 
@@ -762,16 +785,25 @@ uint16_t AsyncMqttClient::subscribe(const char* topic, uint8_t qos) {
   SEMAPHORE_TAKE(0);
   if (_client.space() < neededSpace) { SEMAPHORE_GIVE(); return 0; }
 
+  char* buff = new char[neededSpace];
+  size_t pos = 0;
+
   uint16_t packetId = _getNextPacketId();
   char packetIdBytes[2];
   packetIdBytes[0] = packetId >> 8;
   packetIdBytes[1] = packetId & 0xFF;
 
-  _client.add(fixedHeader, 1 + remainingLengthLength);
-  _client.add(packetIdBytes, 2);
-  _client.add(topicLengthBytes, 2);
-  _client.add(topic, topicLength);
-  _client.add(qosByte, 1);
+  memcpy(&buff[pos], fixedHeader, 1 + remainingLengthLength);
+  pos += 1 + remainingLengthLength;
+  memcpy(&buff[pos], packetIdBytes, 2);
+  pos += 2;
+  memcpy(&buff[pos], topicLengthBytes, 2);
+  pos += 2;
+  memcpy(&buff[pos], topic, topicLength);
+  pos += topicLength;
+  memcpy(&buff[pos], qosByte, 1);
+  pos += 1;
+  _client.add(buff, pos, ASYNC_WRITE_FLAG_COPY);
   _client.send();
   _lastClientActivity = millis();
 
@@ -803,15 +835,23 @@ uint16_t AsyncMqttClient::unsubscribe(const char* topic) {
   SEMAPHORE_TAKE(0);
   if (_client.space() < neededSpace) { SEMAPHORE_GIVE(); return 0; }
 
+  char* buff = new char[neededSpace];
+  size_t pos = 0;
+
   uint16_t packetId = _getNextPacketId();
   char packetIdBytes[2];
   packetIdBytes[0] = packetId >> 8;
   packetIdBytes[1] = packetId & 0xFF;
 
-  _client.add(fixedHeader, 1 + remainingLengthLength);
-  _client.add(packetIdBytes, 2);
-  _client.add(topicLengthBytes, 2);
-  _client.add(topic, topicLength);
+  memcpy(&buff[pos], fixedHeader, 1 + remainingLengthLength);
+  pos += 1 + remainingLengthLength;
+  memcpy(&buff[pos], packetIdBytes, 2);
+  pos += 2;
+  memcpy(&buff[pos], topicLengthBytes, 2);
+  pos += 2;
+  memcpy(&buff[pos], topic, topicLength);
+  pos += topicLength;
+  _client.add(buff, pos, ASYNC_WRITE_FLAG_COPY);
   _client.send();
   _lastClientActivity = millis();
 
@@ -861,6 +901,9 @@ uint16_t AsyncMqttClient::publish(const char* topic, uint8_t qos, bool retain, c
   SEMAPHORE_TAKE(0);
   if (_client.space() < neededSpace) { SEMAPHORE_GIVE(); return 0; }
 
+  char* buff = new char[neededSpace];
+  size_t pos = 0;
+
   uint16_t packetId = 0;
   char packetIdBytes[2];
   if (qos != 0) {
@@ -874,11 +917,21 @@ uint16_t AsyncMqttClient::publish(const char* topic, uint8_t qos, bool retain, c
     packetIdBytes[1] = packetId & 0xFF;
   }
 
-  _client.add(fixedHeader, 1 + remainingLengthLength);
-  _client.add(topicLengthBytes, 2);
-  _client.add(topic, topicLength);
-  if (qos != 0) _client.add(packetIdBytes, 2);
-  if (payload != nullptr) _client.add(payload, payloadLength);
+  memcpy(&buff[pos], fixedHeader, 1 + remainingLengthLength);
+  pos += 1 + remainingLengthLength;
+  memcpy(&buff[pos], topicLengthBytes, 2);
+  pos += 2;
+  memcpy(&buff[pos], topic, topicLength);
+  pos += topicLength;
+  if (qos != 0) {
+    memcpy(&buff[pos], packetIdBytes, 2);
+    pos += 2;
+  }
+  if (payload != nullptr) {
+    memcpy(&buff[pos], payload, payloadLength);
+    pos += payloadLength;
+  }
+  _client.add(buff, pos, ASYNC_WRITE_FLAG_COPY);
   _client.send();
   _lastClientActivity = millis();
 
