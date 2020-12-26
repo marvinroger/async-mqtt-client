@@ -365,6 +365,7 @@ void AsyncMqttClient::_onConnect(AsyncClient* client) {
   }
   _client.add(buff, pos, ASYNC_WRITE_FLAG_COPY);
   _client.send();
+  delete[] buff;
   _lastClientActivity = millis();
   SEMAPHORE_GIVE();
 }
@@ -681,6 +682,7 @@ void AsyncMqttClient::_sendAcks() {
     pos += 2;
     _client.add(buff, pos, ASYNC_WRITE_FLAG_COPY);
     _client.send();
+    delete[] buff;
 
     _toSendAcks.erase(_toSendAcks.begin() + i);
     _toSendAcks.shrink_to_fit();
@@ -805,6 +807,7 @@ uint16_t AsyncMqttClient::subscribe(const char* topic, uint8_t qos) {
   pos += 1;
   _client.add(buff, pos, ASYNC_WRITE_FLAG_COPY);
   _client.send();
+  delete[] buff;
   _lastClientActivity = millis();
 
   SEMAPHORE_GIVE();
@@ -853,6 +856,7 @@ uint16_t AsyncMqttClient::unsubscribe(const char* topic) {
   pos += topicLength;
   _client.add(buff, pos, ASYNC_WRITE_FLAG_COPY);
   _client.send();
+  delete[] buff;
   _lastClientActivity = millis();
 
   SEMAPHORE_GIVE();
@@ -933,6 +937,7 @@ uint16_t AsyncMqttClient::publish(const char* topic, uint8_t qos, bool retain, c
   }
   _client.add(buff, pos, ASYNC_WRITE_FLAG_COPY);
   _client.send();
+  delete[] buff;
   _lastClientActivity = millis();
 
   SEMAPHORE_GIVE();
