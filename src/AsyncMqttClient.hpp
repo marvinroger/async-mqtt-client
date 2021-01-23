@@ -38,6 +38,14 @@
 #include "AsyncMqttClient/Packets/PubRecPacket.hpp"
 #include "AsyncMqttClient/Packets/PubCompPacket.hpp"
 
+#include "AsyncMqttClient/Packets/Out/Connect.hpp"
+#include "AsyncMqttClient/Packets/Out/PingReq.hpp"
+#include "AsyncMqttClient/Packets/Out/PubAck.hpp"
+#include "AsyncMqttClient/Packets/Out/Disconn.hpp"
+#include "AsyncMqttClient/Packets/Out/Subscribe.hpp"
+#include "AsyncMqttClient/Packets/Out/Unsubscribe.hpp"
+#include "AsyncMqttClient/Packets/Out/Publish.hpp"
+
 #if ESP32
 #define SEMAPHORE_TAKE(X) if (xSemaphoreTake(_xSemaphore, 1000 / portTICK_PERIOD_MS) != pdTRUE) { return X; }  // Waits max 1000ms
 #define SEMAPHORE_GIVE() xSemaphoreGive(_xSemaphore);
@@ -163,6 +171,4 @@ class AsyncMqttClient {
   bool _sendPing();
   void _sendAcks();
   bool _sendDisconnect();
-
-  uint16_t _getNextPacketId();
 };
