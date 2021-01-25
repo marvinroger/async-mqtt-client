@@ -1,7 +1,8 @@
 #include "AsyncMqttClient.hpp"
 
 AsyncMqttClient::AsyncMqttClient()
-: _connected(false)
+: _client()
+, _connected(false)
 , _connectPacketNotEnoughSpace(false)
 , _disconnectOnPoll(false)
 , _tlsBadFingerprint(false)
@@ -26,15 +27,14 @@ AsyncMqttClient::AsyncMqttClient()
 , _willRetain(false)
 , _parsingInformation { .bufferState = AsyncMqttClientInternals::BufferState::NONE }
 , _currentParsedPacket(nullptr)
-, _remainingLengthBufferPosition(0)
-, _nextPacketId(1) {
-  _client.onConnect([](void* obj, AsyncClient* c) { (static_cast<AsyncMqttClient*>(obj))->_onConnect(c); }, this);
-  _client.onDisconnect([](void* obj, AsyncClient* c) { (static_cast<AsyncMqttClient*>(obj))->_onDisconnect(c); }, this);
-  _client.onError([](void* obj, AsyncClient* c, int8_t error) { (static_cast<AsyncMqttClient*>(obj))->_onError(c, error); }, this);
-  _client.onTimeout([](void* obj, AsyncClient* c, uint32_t time) { (static_cast<AsyncMqttClient*>(obj))->_onTimeout(c, time); }, this);
-  _client.onAck([](void* obj, AsyncClient* c, size_t len, uint32_t time) { (static_cast<AsyncMqttClient*>(obj))->_onAck(c, len, time); }, this);
-  _client.onData([](void* obj, AsyncClient* c, void* data, size_t len) { (static_cast<AsyncMqttClient*>(obj))->_onData(c, static_cast<char*>(data), len); }, this);
-  _client.onPoll([](void* obj, AsyncClient* c) { (static_cast<AsyncMqttClient*>(obj))->_onPoll(c); }, this);
+, _remainingLengthBufferPosition(0) {
+  _client.onConnect([](void* obj, AsyncClient* c) { (static_cast<AsyncMqttClient*>(obj))->_onConnect(); }, this);
+  _client.onDisconnect([](void* obj, AsyncClient* c) { (static_cast<AsyncMqttClient*>(obj))->_onDisconnect(); }, this);
+  _client.onError([](void* obj, AsyncClient* c, int8_t error) { (static_cast<AsyncMqttClient*>(obj))->_onError(error); }, this);
+  _client.onTimeout([](void* obj, AsyncClient* c, uint32_t time) { (static_cast<AsyncMqttClient*>(obj))->_onTimeout(); }, this);
+  _client.onAck([](void* obj, AsyncClient* c, size_t len, uint32_t time) { (static_cast<AsyncMqttClient*>(obj))->_onAck(len); }, this);
+  _client.onData([](void* obj, AsyncClient* c, void* data, size_t len) { (static_cast<AsyncMqttClient*>(obj))->_onData(static_cast<char*>(data), len); }, this);
+  _client.onPoll([](void* obj, AsyncClient* c) { (static_cast<AsyncMqttClient*>(obj))->_onPoll(); }, this);
 
 #ifdef ESP32
   sprintf(_generatedClientId, "esp32-%06llx", ESP.getEfuseMac());
@@ -169,14 +169,11 @@ void AsyncMqttClient::_clear() {
   _toSendAcks.clear();
   _toSendAcks.shrink_to_fit();
 
-  _nextPacketId = 1;
   _parsingInformation.bufferState = AsyncMqttClientInternals::BufferState::NONE;
 }
 
 /* TCP */
-void AsyncMqttClient::_onConnect(AsyncClient* client) {
-  (void)client;
-
+void AsyncMqttClient::_onConnect() {
 #if ASYNC_TCP_SSL_ENABLED
   if (_secure && _secureServerFingerprints.size() > 0) {
     SSL* clientSsl = _client.getSSL();
@@ -221,8 +218,7 @@ void AsyncMqttClient::_onConnect(AsyncClient* client) {
   SEMAPHORE_GIVE();
 }
 
-void AsyncMqttClient::_onDisconnect(AsyncClient* client) {
-  (void)client;
+void AsyncMqttClient::_onDisconnect() {
   AsyncMqttClientDisconnectReason reason;
 
   if (_connectPacketNotEnoughSpace) {
@@ -238,26 +234,20 @@ void AsyncMqttClient::_onDisconnect(AsyncClient* client) {
   for (auto callback : _onDisconnectUserCallbacks) callback(reason);
 }
 
-void AsyncMqttClient::_onError(AsyncClient* client, int8_t error) {
-  (void)client;
+void AsyncMqttClient::_onError(int8_t error) {
   (void)error;
   // _onDisconnect called anyway
 }
 
-void AsyncMqttClient::_onTimeout(AsyncClient* client, uint32_t time) {
-  (void)client;
-  (void)time;
+void AsyncMqttClient::_onTimeout() {
   // disconnection will be handled by ping/pong management
 }
 
-void AsyncMqttClient::_onAck(AsyncClient* client, size_t len, uint32_t time) {
-  (void)client;
+void AsyncMqttClient::_onAck(size_t len) {
   (void)len;
-  (void)time;
 }
 
-void AsyncMqttClient::_onData(AsyncClient* client, char* data, size_t len) {
-  (void)client;
+void AsyncMqttClient::_onData(char* data, size_t len) {
   size_t currentBytePosition = 0;
   char currentByte;
   _lastServerActivity = millis();
@@ -327,7 +317,7 @@ void AsyncMqttClient::_onData(AsyncClient* client, char* data, size_t len) {
   } while (currentBytePosition != len);
 }
 
-void AsyncMqttClient::_onPoll(AsyncClient* client) {
+void AsyncMqttClient::_onPoll() {
   if (!_connected) return;
 
   // if there is too much time the client has sent a ping request without a response, disconnect client to avoid half open connections

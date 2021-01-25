@@ -134,8 +134,6 @@ class AsyncMqttClient {
   uint8_t _remainingLengthBufferPosition;
   char _remainingLengthBuffer[4];
 
-  uint16_t _nextPacketId;
-
   std::vector<AsyncMqttClientInternals::PendingPubRel> _pendingPubRels;
 
   std::vector<AsyncMqttClientInternals::PendingAck> _toSendAcks;
@@ -148,13 +146,13 @@ class AsyncMqttClient {
   void _freeCurrentParsedPacket();
 
   // TCP
-  void _onConnect(AsyncClient* client);
-  void _onDisconnect(AsyncClient* client);
-  static void _onError(AsyncClient* client, int8_t error);
-  void _onTimeout(AsyncClient* client, uint32_t time);
-  static void _onAck(AsyncClient* client, size_t len, uint32_t time);
-  void _onData(AsyncClient* client, char* data, size_t len);
-  void _onPoll(AsyncClient* client);
+  void _onConnect();
+  void _onDisconnect();
+  void _onError(int8_t error);
+  void _onTimeout();
+  void _onAck(size_t len);
+  void _onData(char* data, size_t len);
+  void _onPoll();
 
   // MQTT
   void _onPingResp();
