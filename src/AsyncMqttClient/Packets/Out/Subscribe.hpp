@@ -3,16 +3,16 @@
 #include <cstring>  // strlen
 #include <vector>
 
-#include "Outpacket.hpp"
+#include "OutPacket.hpp"
 #include "../../Flags.hpp"
 #include "../../Helpers.hpp"
 #include "../../Storage.hpp"
 
 namespace AsyncMqttClientInternals {
-class SubscribeOutPacket : public Outpacket {
+class SubscribeOutPacket : public OutPacket {
  public:
   SubscribeOutPacket(const char* topic, uint8_t qos);
-  const uint8_t* data() const;
+  const uint8_t* data(size_t index = 0) const;
   size_t size() const;
 
   uint16_t packetId() const;

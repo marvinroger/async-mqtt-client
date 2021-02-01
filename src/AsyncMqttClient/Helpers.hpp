@@ -35,4 +35,21 @@ class Helpers {
     return bytesNeeded;
   }
 };
+
+#if defined(ARDUINO_ARCH_ESP8266)
+  #if defined(DEBUG_ESP_PORT) && defined(DEBUG_ASYNC_MQTT_CLIENT)
+    #define log_i(...) DEBUG_ESP_PORT.printf( __VA_ARGS__ ); DEBUG_ESP_PORT.print("\n")
+    #define log_e(...) DEBUG_ESP_PORT.printf( __VA_ARGS__ ); DEBUG_ESP_PORT.print("\n")
+    #define log_w(...) DEBUG_ESP_PORT.printf( __VA_ARGS__ ); DEBUG_ESP_PORT.print("\n")
+  #else
+    #define log_i(...)
+    #define log_e(...)
+    #define log_w(...)
+  #endif
+#elif defined(ARDUINO_ARCH_ESP32)
+  #include <esp32-hal-log.h>
+#else
+  #pragma error "No valid architecture"
+#endif
+
 }  // namespace AsyncMqttClientInternals

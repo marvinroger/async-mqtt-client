@@ -3,12 +3,12 @@
 #include <vector>
 #include <cstring>  // strlen
 
-#include "Outpacket.hpp"
+#include "OutPacket.hpp"
 #include "../../Flags.hpp"
 #include "../../Helpers.hpp"
 
 namespace AsyncMqttClientInternals {
-class ConnectOutPacket : public Outpacket {
+class ConnectOutPacket : public OutPacket {
  public:
   ConnectOutPacket(bool cleanSession,
                    const char* username,
@@ -20,7 +20,7 @@ class ConnectOutPacket : public Outpacket {
                    uint16_t willPayloadLength,
                    uint16_t keepAlive,
                    const char* clientId);
-  const uint8_t* data() const;
+  const uint8_t* data(size_t index = 0) const;
   size_t size() const;
 
  private:

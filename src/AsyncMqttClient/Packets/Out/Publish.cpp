@@ -49,12 +49,16 @@ PublishOutPacket::PublishOutPacket(const char* topic, uint8_t qos, bool retain, 
   _data.insert(_data.end(), fixedHeader, fixedHeader + 1 + remainingLengthLength);
   _data.insert(_data.end(), topicLengthBytes, topicLengthBytes + 2);
   _data.insert(_data.end(), topic, topic + topicLength);
-  if (qos != 0) _data.insert(_data.end(), packetIdBytes, packetIdBytes + 2);
+  if (qos != 0) {
+    _data.insert(_data.end(), packetIdBytes, packetIdBytes + 2);
+  } else {
+    _released = true;
+  }
   if (payload != nullptr) _data.insert(_data.end(), payload, payload + payloadLength);
 }
 
-const uint8_t* PublishOutPacket::data() const {
-  return _data.data();
+const uint8_t* PublishOutPacket::data(size_t index) const {
+  return &_data.data()[index];
 }
 
 size_t PublishOutPacket::size() const {

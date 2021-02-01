@@ -39,8 +39,8 @@ SubscribeOutPacket::SubscribeOutPacket(const char* topic, uint8_t qos) {
   _data.push_back(qosByte[0]);
 }
 
-const uint8_t* SubscribeOutPacket::data() const {
-  return _data.data();
+const uint8_t* SubscribeOutPacket::data(size_t index) const {
+  return &_data.data()[index];
 }
 
 size_t SubscribeOutPacket::size() const {

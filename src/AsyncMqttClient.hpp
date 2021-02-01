@@ -50,8 +50,8 @@
 #define SEMAPHORE_TAKE(X) if (xSemaphoreTake(_xSemaphore, 1000 / portTICK_PERIOD_MS) != pdTRUE) { return X; }  // Waits max 1000ms
 #define SEMAPHORE_GIVE() xSemaphoreGive(_xSemaphore);
 #elif defined(ESP8266)
-#define SEMAPHORE_TAKE(X) void()
-#define SEMAPHORE_GIVE() void()
+#define SEMAPHORE_TAKE(X) while (_xSemaphore) {} _xSemaphore = true;
+#define SEMAPHORE_GIVE() _xSemaphore = false;
 #endif
 
 class AsyncMqttClient {
@@ -86,14 +86,21 @@ class AsyncMqttClient {
   uint16_t unsubscribe(const char* topic);
   uint16_t publish(const char* topic, uint8_t qos, bool retain, const char* payload = nullptr, size_t length = 0, bool dup = false, uint16_t message_id = 0);
 
-  const char* getClientId();
+  const char* getClientId() const;
 
  private:
-  AsyncClient _client;
-
-  bool _connected;
-  bool _connectPacketNotEnoughSpace;
-  bool _disconnectOnPoll;
+  AsyncClient* _client;  // AsyncClient has to be destroyed created because of bug https://github.com/me-no-dev/ESPAsyncTCP/issues/160
+  AsyncMqttClientInternals::OutPacket* _firstPacket;
+  AsyncMqttClientInternals::OutPacket* _lastPacket;
+  AsyncMqttClientInternals::OutPacket* _sendHead;
+  size_t _sent;
+  size_t _acked;
+  enum {
+    CONNECTING,
+    CONNECTED,
+    DISCONNECTING,
+    DISCONNECTED
+  } _state;
   bool _tlsBadFingerprint;
   uint32_t _lastClientActivity;
   uint32_t _lastServerActivity;
@@ -138,9 +145,11 @@ class AsyncMqttClient {
 
   std::vector<AsyncMqttClientInternals::PendingAck> _toSendAcks;
 
-#ifdef ESP32
+#if defined(ESP32)
   SemaphoreHandle_t _xSemaphore = nullptr;
-#endif
+#elif defined(ESP8266)
+  bool _xSemaphore = false;
+#endif 
 
   void _clear();
   void _freeCurrentParsedPacket();
@@ -148,11 +157,17 @@ class AsyncMqttClient {
   // TCP
   void _onConnect();
   void _onDisconnect();
-  void _onError(int8_t error);
-  void _onTimeout();
+  // void _onError(int8_t error);
+  // void _onTimeout();
   void _onAck(size_t len);
   void _onData(char* data, size_t len);
   void _onPoll();
+
+  // QUEUE
+  void _addMsgFront(AsyncMqttClientInternals::OutPacket* packet);
+  void _addMsgBack(AsyncMqttClientInternals::OutPacket* packet);
+  void _send();
+  void _cleanup();
 
   // MQTT
   void _onPingResp();
@@ -166,7 +181,7 @@ class AsyncMqttClient {
   void _onPubRec(uint16_t packetId);
   void _onPubComp(uint16_t packetId);
 
-  bool _sendPing();
+  void _sendPing();
   void _sendAcks();
-  bool _sendDisconnect();
+  void _sendDisconnect();
 };

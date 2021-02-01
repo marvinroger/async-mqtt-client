@@ -9,10 +9,11 @@ PubAckOutPacket::PubAckOutPacket(PendingAck pendingAck) {
     _data[1] = 2;
     _data[2] = pendingAck.packetId >> 8;
     _data[3] = pendingAck.packetId & 0xFF;
+    _released = true;
 }
 
-const uint8_t* PubAckOutPacket::data() const {
-  return _data;
+const uint8_t* PubAckOutPacket::data(size_t index) const {
+  return &_data[index];;
 }
 
 size_t PubAckOutPacket::size() const {

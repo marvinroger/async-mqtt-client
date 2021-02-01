@@ -32,8 +32,8 @@ UnsubscribeOutPacket::UnsubscribeOutPacket(const char* topic) {
   _data.insert(_data.end(), topic, topic + topicLength);
 }
 
-const uint8_t* UnsubscribeOutPacket::data() const {
-  return _data.data();
+const uint8_t* UnsubscribeOutPacket::data(size_t index) const {
+  return &_data.data()[index];
 }
 
 size_t UnsubscribeOutPacket::size() const {

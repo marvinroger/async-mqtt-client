@@ -1,14 +1,14 @@
 #pragma once
 
-#include "Outpacket.hpp"
+#include "OutPacket.hpp"
 #include "../../Flags.hpp"
 #include "../../Helpers.hpp"
 
 namespace AsyncMqttClientInternals {
-class PingReqOutPacket : public Outpacket {
+class PingReqOutPacket : public OutPacket {
  public:
   PingReqOutPacket();
-  const uint8_t* data() const;
+  const uint8_t* data(size_t index = 0) const;
   size_t size() const;
 
  private:
