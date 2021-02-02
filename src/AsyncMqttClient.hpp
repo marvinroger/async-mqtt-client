@@ -47,7 +47,7 @@
 #include "AsyncMqttClient/Packets/Out/Publish.hpp"
 
 #if ESP32
-#define SEMAPHORE_TAKE(X) if (xSemaphoreTake(_xSemaphore, 1000 / portTICK_PERIOD_MS) != pdTRUE) { return X; }  // Waits max 1000ms
+#define SEMAPHORE_TAKE(X) if (xSemaphoreTake(_xSemaphore, portMAX_DELAY) != pdTRUE) { return X; }  // Waits max 1000ms
 #define SEMAPHORE_GIVE() xSemaphoreGive(_xSemaphore);
 #elif defined(ESP8266)
 #define SEMAPHORE_TAKE(X) while (_xSemaphore) {} _xSemaphore = true;

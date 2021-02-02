@@ -257,9 +257,7 @@ void AsyncMqttClient::_onAck(size_t len) {
   log_i("acking %u", len);
   _acked += len;
   log_i("total to ack %u", _acked);
-  // destroy packets that are acked and confirmed
   _cleanup();
-  // there will be space in the _client send buffer again, so try to send
   _send();
 }
 
@@ -395,6 +393,8 @@ void AsyncMqttClient::_addMsgBack(AsyncMqttClientInternals::OutPacket* packet) {
 
 void AsyncMqttClient::_send() {
   SEMAPHORE_TAKE();
+  // On ESP32, onDisconnect is called within the close()-call. So we need to make sure we don't lock
+  bool disconnect = false;
   while (_sendHead && _client->space() > 10) {  // send at least 10 bytes
     if (_sendHead->size() > _sent) {
       log_i("sending packet type %u", _sendHead->packetType());
@@ -404,8 +404,8 @@ void AsyncMqttClient::_send() {
       _lastPingRequestTime = millis();
       log_i("sending %u/%u", _sent, _sendHead->size());
       if (_sendHead->packetType() == AsyncMqttClientInternals::PacketType.DISCONNECT) {
-        log_i("DISCONNECT sent, disconnecting");
-        _client->close();
+        log_i("DISCONNECT sent, will be disconnecting");
+        disconnect = true;
       }
     }
     if (_sendHead->size() == _sent) {
@@ -420,6 +420,7 @@ void AsyncMqttClient::_send() {
     }
   }
   SEMAPHORE_GIVE();
+  if (disconnect) _client->close();
 }
 
 void AsyncMqttClient::_cleanup() {
