@@ -437,27 +437,28 @@ void AsyncMqttClient::_send() {
 
 void AsyncMqttClient::_cleanup() {
   SEMAPHORE_TAKE();
-  while (_firstPacket && _firstPacket->released() && _acked >= _firstPacket->size()) {
+  while (_firstPacket &&
+         _firstPacket != _sendHead &&
+         _firstPacket->released() &&
+         _acked >= _firstPacket->size()) {
     log_i("rmv #%u", _firstPacket->packetType());
     AsyncMqttClientInternals::OutPacket* next = _firstPacket->getNext();
     _acked -= _firstPacket->size();
     delete _firstPacket;
     _firstPacket = next;
-    if (!_firstPacket) {
+    if (!next) {
       log_i("q empty");
-      _lastPacket = _firstPacket;  // queue is empty
+      _lastPacket = next;  // queue is empty
     }
   }
   SEMAPHORE_GIVE();
 }
 
 void AsyncMqttClient::_clearQueue(bool keepSessionData) {
-  log_i("clearing queue");
   SEMAPHORE_TAKE();
   AsyncMqttClientInternals::OutPacket* prev = nullptr;
   AsyncMqttClientInternals::OutPacket* current = _firstPacket;
   while (current) {
-    log_i("check");
     /* MQTT spec 3.1.2.4 Clean Session:
      *  - QoS 1 and QoS 2 messages which have been sent to the Server, but have not been completely acknowledged.
      *  - QoS 2 messages which have been received from the Server, but have not been completely acknowledged. 
@@ -493,7 +494,6 @@ void AsyncMqttClient::_clearQueue(bool keepSessionData) {
   }
   _sent = 0;
   _acked = 0;
-  log_i("clearing complete");
   SEMAPHORE_GIVE();
 }
 
