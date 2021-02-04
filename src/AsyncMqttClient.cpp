@@ -64,6 +64,7 @@ AsyncMqttClient::~AsyncMqttClient() {
   vSemaphoreDelete(_xSemaphore);
 #endif
   _clear();
+  _clearQueue(false);  // _clear() doesn't clear session data
 }
 
 AsyncMqttClient& AsyncMqttClient::setKeepAlive(uint16_t keepAlive) {
@@ -172,14 +173,7 @@ void AsyncMqttClient::_clear() {
   _freeCurrentParsedPacket();
   delete _client;
   _client = nullptr;
-  while (_firstPacket && _firstPacket != _lastPacket) {
-    AsyncMqttClientInternals::OutPacket* tmp = _firstPacket->getNext();
-    delete _firstPacket;
-    _firstPacket = tmp;
-  }
-  _lastPacket = _sendHead = _firstPacket;
-  _sent = 0;
-  _acked = 0;
+  _clearQueue(true);  // keep session data for now
 
   _pendingPubRels.clear();
   _pendingPubRels.shrink_to_fit();
@@ -192,7 +186,7 @@ void AsyncMqttClient::_clear() {
 
 /* TCP */
 void AsyncMqttClient::_onConnect() {
-  log_i("tcp connected, trying to send CONNECT");
+  log_i("TCP conn, MQTT CONNECT");
 #if ASYNC_TCP_SSL_ENABLED
   if (_secure && _secureServerFingerprints.size() > 0) {
     SSL* clientSsl = _client->getSSL();
@@ -223,11 +217,12 @@ void AsyncMqttClient::_onConnect() {
                                                  _willPayloadLength,
                                                  _keepAlive,
                                                  _clientId);
-  _addMsgFront(msg);
+  _addFront(msg);
   _send();
 }
 
 void AsyncMqttClient::_onDisconnect() {
+  log_i("TCP disconn");
   _state = DISCONNECTED;
   AsyncMqttClientDisconnectReason reason;
 
@@ -254,9 +249,8 @@ void AsyncMqttClient::_onTimeout() {
 */
 
 void AsyncMqttClient::_onAck(size_t len) {
-  log_i("acking %u", len);
   _acked += len;
-  log_i("total to ack %u", _acked);
+  log_i("ack %u (%u)", len, _acked);
   _cleanup();
   _send();
 }
@@ -346,7 +340,7 @@ void AsyncMqttClient::_onData(char* data, size_t len) {
 void AsyncMqttClient::_onPoll() {
   // if there is too much time the client has sent a ping request without a response, disconnect client to avoid half open connections
   if (_lastPingRequestTime != 0 && (millis() - _lastPingRequestTime) >= (_keepAlive * 1000 * 2)) {
-    log_w("PING timeout, disconnecting");
+    log_w("PING t/o, disconnecting");
     disconnect(true);
     return;
   }
@@ -362,31 +356,49 @@ void AsyncMqttClient::_onPoll() {
   _send();
 }
 
-void AsyncMqttClient::_addMsgFront(AsyncMqttClientInternals::OutPacket* packet) {
+/* QUEUE */
+
+void AsyncMqttClient::_insert(AsyncMqttClientInternals::OutPacket* packet) {
+  // We only use this for QoS2 PUBREL so there must be a PUBLISH packet present.
+  // The queue therefore cannot be empty and _sendHead points to this PUBLISH packet.
   SEMAPHORE_TAKE();
-  if (_sendHead == nullptr) {
-    _firstPacket = _lastPacket = _sendHead = packet;
-    log_i("msg added to front #%u (queue was empty)", packet->packetType());
-  } else {
-    packet->setNext(_sendHead->getNext());
-    _sendHead->setNext(packet);
-    log_i("msg added to front #%u", packet->packetType());
+  log_i("new insert #%u", packet->packetType());
+  _sendHead->setNext(packet);
+  packet->setNext(_sendHead->getNext());
+  if (_firstPacket == _lastPacket) {  // PUB packet is the only one in the queue
+    _lastPacket = packet;
   }
   SEMAPHORE_GIVE();
   _send();
 }
 
-void AsyncMqttClient::_addMsgBack(AsyncMqttClientInternals::OutPacket* packet) {
+void AsyncMqttClient::_addFront(AsyncMqttClientInternals::OutPacket* packet) {
+  // This is only used for the CONNECT packet, to be able to establish a connection
+  // before anything else. The queue can be empty or has packets from the continued session.
+  // IN both cases, _sendHead should always point to the CONNECT packet afterwards.
   SEMAPHORE_TAKE();
-  if (_lastPacket == nullptr) {
-    _firstPacket = _lastPacket = _sendHead = packet;
-    log_i("msg added to back #%u (queue was empty)", packet->packetType());
+  log_i("new front #%u", packet->packetType());
+  if (_firstPacket == nullptr) {
+    _lastPacket = packet;
+  } else {
+    packet->setNext(_firstPacket);
+  }
+  _firstPacket = packet;
+  _sendHead = _firstPacket;
+  SEMAPHORE_GIVE();
+  _send();
+}
+
+void AsyncMqttClient::_addBack(AsyncMqttClientInternals::OutPacket* packet) {
+  SEMAPHORE_TAKE();
+  log_i("new back #%u", packet->packetType());
+  if (!_lastPacket) {
+    _firstPacket = packet;
   } else {
     _lastPacket->setNext(packet);
-    _lastPacket = packet;
-    if (!_sendHead) _sendHead = _lastPacket;
-    log_i("msg added to back #%u", packet->packetType());
   }
+  _lastPacket = packet;
+  if (!_sendHead) _sendHead = _lastPacket;
   SEMAPHORE_GIVE();
   _send();
 }
@@ -397,46 +409,91 @@ void AsyncMqttClient::_send() {
   bool disconnect = false;
   while (_sendHead && _client->space() > 10) {  // send at least 10 bytes
     if (_sendHead->size() > _sent) {
-      log_i("sending packet type %u", _sendHead->packetType());
       _sent += _client->add(reinterpret_cast<const char*>(_sendHead->data(_sent)), _sendHead->size() - _sent, 0x00);
       _client->send();
       _lastClientActivity = millis();
       _lastPingRequestTime = millis();
-      log_i("sending %u/%u", _sent, _sendHead->size());
+      log_i("snd #%u: %u/%u", _sendHead->packetType(), _sent, _sendHead->size());
       if (_sendHead->packetType() == AsyncMqttClientInternals::PacketType.DISCONNECT) {
-        log_i("DISCONNECT sent, will be disconnecting");
         disconnect = true;
       }
     }
     if (_sendHead->size() == _sent) {
       if (_sendHead->released()) {
-        log_i("packet sent completely, confirmed, moving to next");
+        log_i("p #%d rel", _sendHead->packetType());
         _sendHead = _sendHead->getNext();
         _sent = 0;
       } else {
-        log_i("packet sent completely, waiting for confirmation");
-        break;  // send completely, now wait for mqtt confirmation
+        break;  // sending is complete however send next only after mqtt confirmation
       }
     }
   }
   SEMAPHORE_GIVE();
-  if (disconnect) _client->close();
+  if (disconnect) {
+    log_i("snd DISCONN, disconnecting");
+    _client->close();
+  }
 }
 
 void AsyncMqttClient::_cleanup() {
   SEMAPHORE_TAKE();
   while (_firstPacket && _firstPacket->released() && _acked >= _firstPacket->size()) {
-    log_i("cleanup packet #%u", _firstPacket->packetType());
+    log_i("rmv #%u", _firstPacket->packetType());
     AsyncMqttClientInternals::OutPacket* next = _firstPacket->getNext();
     _acked -= _firstPacket->size();
     delete _firstPacket;
     _firstPacket = next;
     if (!_firstPacket) {
-      _lastPacket = _sendHead = _firstPacket;  // queue is empty
-      log_i("cleanup: queue cleared");
+      log_i("q empty");
+      _lastPacket = _firstPacket;  // queue is empty
     }
-    log_i("still to ack: %u", _acked);
   }
+  SEMAPHORE_GIVE();
+}
+
+void AsyncMqttClient::_clearQueue(bool keepSessionData) {
+  log_i("clearing queue");
+  SEMAPHORE_TAKE();
+  AsyncMqttClientInternals::OutPacket* prev = nullptr;
+  AsyncMqttClientInternals::OutPacket* current = _firstPacket;
+  while (current) {
+    log_i("check");
+    /* MQTT spec 3.1.2.4 Clean Session:
+     *  - QoS 1 and QoS 2 messages which have been sent to the Server, but have not been completely acknowledged.
+     *  - QoS 2 messages which have been received from the Server, but have not been completely acknowledged. 
+     */
+    if (keepSessionData && 
+        ((current->packetType() == AsyncMqttClientInternals::PacketType.PUBLISH && current->qos() > 0) ||
+         current->packetType() == AsyncMqttClientInternals::PacketType.PUBREC ||
+         current->packetType() == AsyncMqttClientInternals::PacketType.PUBREL)) {
+      log_i("keep #%u", current->packetType());
+      prev = current;
+      current = current->getNext();
+    // else: message is not part of client session, delete
+    } else {
+      log_i("rmv #%u", current->packetType());
+      if (_firstPacket == _lastPacket) {  // only 1 left in queue
+        delete current;
+        current = _firstPacket = _lastPacket = nullptr;
+      } else if (current == _firstPacket) {  // delete first
+        _firstPacket = current->getNext();
+        delete current;
+        current = _firstPacket;
+      } else if (current == _lastPacket) {  // delete last
+        prev->setNext(nullptr);
+        _lastPacket = prev;
+        delete current;
+        current = nullptr;
+      } else {  // delete any other
+        prev->setNext(current->getNext());
+        delete current;
+        current = prev->getNext();
+      }
+    }
+  }
+  _sent = 0;
+  _acked = 0;
+  log_i("clearing complete");
   SEMAPHORE_GIVE();
 }
 
@@ -448,13 +505,18 @@ void AsyncMqttClient::_onPingResp() {
 }
 
 void AsyncMqttClient::_onConnAck(bool sessionPresent, uint8_t connectReturnCode) {
-  // (void)sessionPresent;
-
   log_i("CONNACK");
   _freeCurrentParsedPacket();
 
+  SEMAPHORE_TAKE();
+  if (_firstPacket && _firstPacket->packetType() == AsyncMqttClientInternals::PacketType.CONNECT) {
+    _firstPacket->release();
+    log_i("CONNECT released");
+  }
+  SEMAPHORE_GIVE();
+
   if (!sessionPresent) {
-    _cleanup();
+    _clearQueue(false);  // remove session data
   }
 
   if (connectReturnCode == 0) {
@@ -463,7 +525,7 @@ void AsyncMqttClient::_onConnAck(bool sessionPresent, uint8_t connectReturnCode)
   } else {
     // Callbacks are handled by the ondisconnect function which is called from the AsyncTcp lib
   }
-  _send();
+  _send();  // send any remaining data from continued session
 }
 
 void AsyncMqttClient::_onSubAck(uint16_t packetId, char status) {
@@ -485,7 +547,7 @@ void AsyncMqttClient::_onUnsubAck(uint16_t packetId) {
   log_i("UNSUBACK");
   _freeCurrentParsedPacket();
   SEMAPHORE_TAKE();
-  if (_sendHead && _sendHead->packetType() == AsyncMqttClientInternals::PacketType.UNSUBSCRIBE) {
+  if (_sendHead && _sendHead->packetId() == packetId) {
     _sendHead->release();
     log_i("UNSUB released");
   }
@@ -574,7 +636,7 @@ void AsyncMqttClient::_onPubRel(uint16_t packetId) {
 void AsyncMqttClient::_onPubAck(uint16_t packetId) {
   log_i("PUBACK");
   _freeCurrentParsedPacket();
-  if (_sendHead && _sendHead->packetType() == AsyncMqttClientInternals::PacketType.PUBLISH) {
+  if (_sendHead && _sendHead->packetId() == packetId) {
     _sendHead->release();
     log_i("PUB released");
   }
@@ -603,14 +665,14 @@ void AsyncMqttClient::_onPubComp(uint16_t packetId) {
 void AsyncMqttClient::_sendPing() {
   log_i("PING");
   AsyncMqttClientInternals::OutPacket* msg = new AsyncMqttClientInternals::PingReqOutPacket;
-  _addMsgBack(msg);
+  _addBack(msg);
 }
 
 void AsyncMqttClient::_sendAcks() {
   for (size_t i = 0; i < _toSendAcks.size(); i++) {
     log_i("snd PUBACK");
     AsyncMqttClientInternals::OutPacket* msg = new AsyncMqttClientInternals::PubAckOutPacket(_toSendAcks[i]);
-    _addMsgFront(msg);
+    _addBack(msg);
   }
 }
 
@@ -648,13 +710,14 @@ void AsyncMqttClient::connect() {
 }
 
 void AsyncMqttClient::disconnect(bool force) {
+  log_i("DISCONNECT (f:%d)", force);
   if (force) {
     _state = DISCONNECTED;
     _client->close(true);
   } else {
     _state = DISCONNECTING;
     AsyncMqttClientInternals::OutPacket* msg = new AsyncMqttClientInternals::DisconnOutPacket;
-    _addMsgBack(msg);
+    _addBack(msg);
   }
 }
 
@@ -663,7 +726,7 @@ uint16_t AsyncMqttClient::subscribe(const char* topic, uint8_t qos) {
   log_i("SUBSCRIBE");
 
   AsyncMqttClientInternals::OutPacket* msg = new AsyncMqttClientInternals::SubscribeOutPacket(topic, qos);
-  _addMsgBack(msg);
+  _addBack(msg);
   return msg->packetId();
 }
 
@@ -672,16 +735,16 @@ uint16_t AsyncMqttClient::unsubscribe(const char* topic) {
   log_i("UNSUBSCRIBE");
 
   AsyncMqttClientInternals::OutPacket* msg = new AsyncMqttClientInternals::UnsubscribeOutPacket(topic);
-  _addMsgBack(msg);
+  _addBack(msg);
   return msg->packetId();
 }
 
 uint16_t AsyncMqttClient::publish(const char* topic, uint8_t qos, bool retain, const char* payload, size_t length, bool dup, uint16_t message_id) {
-  if (_state != CONNECTED) return 0;
+  if (_state != CONNECTED || GET_FREE_MEMORY() < MQTT_MIN_FREE_MEMORY) return 0;
   log_i("PUBLISH");
 
   AsyncMqttClientInternals::OutPacket* msg = new AsyncMqttClientInternals::PublishOutPacket(topic, qos, retain, payload, length);
-  _addMsgBack(msg);
+  _addBack(msg);
   return msg->packetId();
 }
 

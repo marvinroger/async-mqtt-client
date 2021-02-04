@@ -5,6 +5,10 @@
 
 #include "Arduino.h"
 
+#ifndef MQTT_MIN_FREE_MEMORY
+#define MQTT_MIN_FREE_MEMORY 4096
+#endif
+
 #ifdef ESP32
 #include <AsyncTCP.h>
 #include <freertos/semphr.h>
@@ -45,14 +49,6 @@
 #include "AsyncMqttClient/Packets/Out/Subscribe.hpp"
 #include "AsyncMqttClient/Packets/Out/Unsubscribe.hpp"
 #include "AsyncMqttClient/Packets/Out/Publish.hpp"
-
-#if ESP32
-#define SEMAPHORE_TAKE(X) if (xSemaphoreTake(_xSemaphore, portMAX_DELAY) != pdTRUE) { return X; }  // Waits max 1000ms
-#define SEMAPHORE_GIVE() xSemaphoreGive(_xSemaphore);
-#elif defined(ESP8266)
-#define SEMAPHORE_TAKE(X) while (_xSemaphore) {} _xSemaphore = true;
-#define SEMAPHORE_GIVE() _xSemaphore = false;
-#endif
 
 class AsyncMqttClient {
  public:
@@ -164,10 +160,12 @@ class AsyncMqttClient {
   void _onPoll();
 
   // QUEUE
-  void _addMsgFront(AsyncMqttClientInternals::OutPacket* packet);
-  void _addMsgBack(AsyncMqttClientInternals::OutPacket* packet);
+  void _insert(AsyncMqttClientInternals::OutPacket* packet);    // for PUBREL
+  void _addFront(AsyncMqttClientInternals::OutPacket* packet);  // for CONNECT
+  void _addBack(AsyncMqttClientInternals::OutPacket* packet);   // all the rest
   void _send();
   void _cleanup();
+  void _clearQueue(bool keepSessionData);
 
   // MQTT
   void _onPingResp();
