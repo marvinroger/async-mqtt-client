@@ -218,7 +218,7 @@ void AsyncMqttClient::_onConnect() {
                                                  _keepAlive,
                                                  _clientId);
   _addFront(msg);
-  _send();
+  _handleQueue();
 }
 
 void AsyncMqttClient::_onDisconnect() {
@@ -251,8 +251,7 @@ void AsyncMqttClient::_onTimeout() {
 void AsyncMqttClient::_onAck(size_t len) {
   _acked += len;
   log_i("ack %u (%u)", len, _acked);
-  _cleanup();
-  _send();
+  _handleQueue();
 }
 
 void AsyncMqttClient::_onData(char* data, size_t len) {
@@ -352,8 +351,7 @@ void AsyncMqttClient::_onPoll() {
   } else if (_state == CONNECTED && _lastPingRequestTime == 0 && (millis() - _lastServerActivity) >= (_keepAlive * 1000 * 0.7)) {
     _sendPing();
   }
-  _cleanup();
-  _send();
+  _handleQueue();
 }
 
 /* QUEUE */
@@ -369,7 +367,7 @@ void AsyncMqttClient::_insert(AsyncMqttClientInternals::OutPacket* packet) {
     _lastPacket = packet;
   }
   SEMAPHORE_GIVE();
-  _send();
+  _handleQueue();
 }
 
 void AsyncMqttClient::_addFront(AsyncMqttClientInternals::OutPacket* packet) {
@@ -386,7 +384,7 @@ void AsyncMqttClient::_addFront(AsyncMqttClientInternals::OutPacket* packet) {
   _firstPacket = packet;
   _sendHead = _firstPacket;
   SEMAPHORE_GIVE();
-  _send();
+  _handleQueue();
 }
 
 void AsyncMqttClient::_addBack(AsyncMqttClientInternals::OutPacket* packet) {
@@ -400,14 +398,16 @@ void AsyncMqttClient::_addBack(AsyncMqttClientInternals::OutPacket* packet) {
   _lastPacket = packet;
   if (!_sendHead) _sendHead = _lastPacket;
   SEMAPHORE_GIVE();
-  _send();
+  _handleQueue();
 }
 
-void AsyncMqttClient::_send() {
+void AsyncMqttClient::_handleQueue() {
   SEMAPHORE_TAKE();
   // On ESP32, onDisconnect is called within the close()-call. So we need to make sure we don't lock
   bool disconnect = false;
+
   while (_sendHead && _client->space() > 10) {  // send at least 10 bytes
+    // Try to send first
     if (_sendHead->size() > _sent) {
       _sent += _client->add(reinterpret_cast<const char*>(_sendHead->data(_sent)), _sendHead->size() - _sent, 0x00);
       _client->send();
@@ -418,7 +418,26 @@ void AsyncMqttClient::_send() {
         disconnect = true;
       }
     }
-    if (_sendHead->size() == _sent) {
+
+    // Delete obsolete packets
+    while (_firstPacket && _firstPacket->released() && _acked >= _firstPacket->size()) {
+      log_i("rmv #%u", _firstPacket->packetType());
+      AsyncMqttClientInternals::OutPacket* next = _firstPacket->getNext();
+      _acked -= _firstPacket->size();
+      if (_firstPacket == _sendHead) {
+        _sendHead = next;
+        _sent = 0;
+      }
+      delete _firstPacket;
+      _firstPacket = next;
+      if (!next) {
+        log_i("q empty");
+        _lastPacket = next;  // queue is empty
+      }
+    }
+
+    // Stop processing when we have to wait for an MQTT acknowledgment
+    if (_sendHead && _sendHead->size() == _sent) {
       if (_sendHead->released()) {
         log_i("p #%d rel", _sendHead->packetType());
         _sendHead = _sendHead->getNext();
@@ -428,30 +447,12 @@ void AsyncMqttClient::_send() {
       }
     }
   }
+
   SEMAPHORE_GIVE();
   if (disconnect) {
     log_i("snd DISCONN, disconnecting");
     _client->close();
   }
-}
-
-void AsyncMqttClient::_cleanup() {
-  SEMAPHORE_TAKE();
-  while (_firstPacket &&
-         _firstPacket != _sendHead &&
-         _firstPacket->released() &&
-         _acked >= _firstPacket->size()) {
-    log_i("rmv #%u", _firstPacket->packetType());
-    AsyncMqttClientInternals::OutPacket* next = _firstPacket->getNext();
-    _acked -= _firstPacket->size();
-    delete _firstPacket;
-    _firstPacket = next;
-    if (!next) {
-      log_i("q empty");
-      _lastPacket = next;  // queue is empty
-    }
-  }
-  SEMAPHORE_GIVE();
 }
 
 void AsyncMqttClient::_clearQueue(bool keepSessionData) {
@@ -525,7 +526,7 @@ void AsyncMqttClient::_onConnAck(bool sessionPresent, uint8_t connectReturnCode)
   } else {
     // Callbacks are handled by the ondisconnect function which is called from the AsyncTcp lib
   }
-  _send();  // send any remaining data from continued session
+  _handleQueue();  // send any remaining data from continued session
 }
 
 void AsyncMqttClient::_onSubAck(uint16_t packetId, char status) {
@@ -540,7 +541,7 @@ void AsyncMqttClient::_onSubAck(uint16_t packetId, char status) {
 
   for (auto callback : _onSubscribeUserCallbacks) callback(packetId, status);
 
-  _send();  // subscribe confirmed, ready to send next queued item
+  _handleQueue();  // subscribe confirmed, ready to send next queued item
 }
 
 void AsyncMqttClient::_onUnsubAck(uint16_t packetId) {
@@ -555,7 +556,7 @@ void AsyncMqttClient::_onUnsubAck(uint16_t packetId) {
 
   for (auto callback : _onUnsubscribeUserCallbacks) callback(packetId);
 
-  _send();  // unsubscribe confirmed, ready to send next queued item
+  _handleQueue();  // unsubscribe confirmed, ready to send next queued item
 }
 
 void AsyncMqttClient::_onMessage(char* topic, char* payload, uint8_t qos, bool dup, bool retain, size_t len, size_t index, size_t total, uint16_t packetId) {

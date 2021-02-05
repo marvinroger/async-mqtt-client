@@ -163,8 +163,7 @@ class AsyncMqttClient {
   void _insert(AsyncMqttClientInternals::OutPacket* packet);    // for PUBREL
   void _addFront(AsyncMqttClientInternals::OutPacket* packet);  // for CONNECT
   void _addBack(AsyncMqttClientInternals::OutPacket* packet);   // all the rest
-  void _send();
-  void _cleanup();
+  void _handleQueue();
   void _clearQueue(bool keepSessionData);
 
   // MQTT
