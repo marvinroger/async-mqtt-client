@@ -361,9 +361,9 @@ void AsyncMqttClient::_insert(AsyncMqttClientInternals::OutPacket* packet) {
   // The queue therefore cannot be empty and _sendHead points to this PUBLISH packet.
   SEMAPHORE_TAKE();
   log_i("new insert #%u", packet->packetType());
-  _sendHead->setNext(packet);
   packet->setNext(_sendHead->getNext());
-  if (_firstPacket == _lastPacket) {  // PUB packet is the only one in the queue
+  _sendHead->setNext(packet);
+  if (_sendHead == _lastPacket) {  // PUB packet is the only one in the queue
     _lastPacket = packet;
   }
   SEMAPHORE_GIVE();
@@ -635,7 +635,6 @@ void AsyncMqttClient::_onPubRel(uint16_t packetId) {
 }
 
 void AsyncMqttClient::_onPubAck(uint16_t packetId) {
-  log_i("PUBACK");
   _freeCurrentParsedPacket();
   if (_sendHead && _sendHead->packetId() == packetId) {
     _sendHead->release();
@@ -648,17 +647,31 @@ void AsyncMqttClient::_onPubAck(uint16_t packetId) {
 void AsyncMqttClient::_onPubRec(uint16_t packetId) {
   _freeCurrentParsedPacket();
 
+  // We will only be sending 1 QoS>0 PUB message at a time (to honor message
+  // ordering). So no need to store ACKS in a separate container as it will
+  // be stored in the outgoing queue until a PUBCOMP comes in.
   AsyncMqttClientInternals::PendingAck pendingAck;
   pendingAck.packetType = AsyncMqttClientInternals::PacketType.PUBREL;
   pendingAck.headerFlag = AsyncMqttClientInternals::HeaderFlag.PUBREL_RESERVED;
   pendingAck.packetId = packetId;
-  _toSendAcks.push_back(pendingAck);
+  log_i("snd PUBREL");
 
-  _sendAcks();
+  AsyncMqttClientInternals::OutPacket* msg = new AsyncMqttClientInternals::PubAckOutPacket(pendingAck);
+  if (_sendHead && _sendHead->packetId() == packetId) {
+    _sendHead->release();
+    log_i("PUB released");
+  }
+  _insert(msg);
 }
 
 void AsyncMqttClient::_onPubComp(uint16_t packetId) {
   _freeCurrentParsedPacket();
+
+  // _sendHead points to the PUBREL package
+  if (_sendHead && _sendHead->packetId() == packetId) {
+    _sendHead->release();
+    log_i("PUBREL released");
+  }
 
   for (auto callback : _onPublishUserCallbacks) callback(packetId);
 }
