@@ -457,8 +457,13 @@ void AsyncMqttClient::_handleQueue() {
 
 void AsyncMqttClient::_clearQueue(bool keepSessionData) {
   SEMAPHORE_TAKE();
-  AsyncMqttClientInternals::OutPacket* prev = nullptr;
   AsyncMqttClientInternals::OutPacket* current = _firstPacket;
+  AsyncMqttClientInternals::OutPacket* currentSend = _sendHead;
+  _firstPacket = nullptr;
+  _lastPacket = nullptr;
+  _sendHead = nullptr;
+  bool setDup = true;
+
   while (current) {
     /* MQTT spec 3.1.2.4 Clean Session:
      *  - QoS 1 and QoS 2 messages which have been sent to the Server, but have not been completely acknowledged.
@@ -469,28 +474,20 @@ void AsyncMqttClient::_clearQueue(bool keepSessionData) {
          current->packetType() == AsyncMqttClientInternals::PacketType.PUBREC ||
          current->packetType() == AsyncMqttClientInternals::PacketType.PUBREL)) {
       log_i("keep #%u", current->packetType());
-      prev = current;
+      if (setDup && current->packetType() == AsyncMqttClientInternals::PacketType.PUBLISH) {
+        reinterpret_cast<AsyncMqttClientInternals::PublishOutPacket*>(current)->setDup();
+      }
+      if (current == currentSend) {
+        setDup = false;
+      }
+      _addBack(current);
+      _lastPacket->setNext(nullptr);
       current = current->getNext();
-    // else: message is not part of client session, delete
     } else {
       log_i("rmv #%u", current->packetType());
-      if (_firstPacket == _lastPacket) {  // only 1 left in queue
-        delete current;
-        current = _firstPacket = _lastPacket = nullptr;
-      } else if (current == _firstPacket) {  // delete first
-        _firstPacket = current->getNext();
-        delete current;
-        current = _firstPacket;
-      } else if (current == _lastPacket) {  // delete last
-        prev->setNext(nullptr);
-        _lastPacket = prev;
-        delete current;
-        current = nullptr;
-      } else {  // delete any other
-        prev->setNext(current->getNext());
-        delete current;
-        current = prev->getNext();
-      }
+      AsyncMqttClientInternals::OutPacket* next = current->getNext();
+      delete current;
+      current = next;
     }
   }
   _sent = 0;
