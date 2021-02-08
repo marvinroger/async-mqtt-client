@@ -412,7 +412,7 @@ void AsyncMqttClient::_handleQueue() {
       _sent += _client->add(reinterpret_cast<const char*>(_sendHead->data(_sent)), _sendHead->size() - _sent, 0x00);
       _client->send();
       _lastClientActivity = millis();
-      _lastPingRequestTime = millis();
+      _lastPingRequestTime = 0;
       log_i("snd #%u: %u/%u", _sendHead->packetType(), _sent, _sendHead->size());
       if (_sendHead->packetType() == AsyncMqttClientInternals::PacketType.DISCONNECT) {
         disconnect = true;
@@ -585,12 +585,14 @@ void AsyncMqttClient::_onPublish(uint16_t packetId, uint8_t qos) {
     pendingAck.packetType = AsyncMqttClientInternals::PacketType.PUBACK;
     pendingAck.headerFlag = AsyncMqttClientInternals::HeaderFlag.PUBACK_RESERVED;
     pendingAck.packetId = packetId;
-    _toSendAcks.push_back(pendingAck);
+    AsyncMqttClientInternals::OutPacket* msg = new AsyncMqttClientInternals::PubAckOutPacket(pendingAck);
+    _addBack(msg);
   } else if (qos == 2) {
     pendingAck.packetType = AsyncMqttClientInternals::PacketType.PUBREC;
     pendingAck.headerFlag = AsyncMqttClientInternals::HeaderFlag.PUBREC_RESERVED;
     pendingAck.packetId = packetId;
-    _toSendAcks.push_back(pendingAck);
+    AsyncMqttClientInternals::OutPacket* msg = new AsyncMqttClientInternals::PubAckOutPacket(pendingAck);
+    _addBack(msg);
 
     bool pubRelAwaiting = false;
     for (AsyncMqttClientInternals::PendingPubRel pendingPubRel : _pendingPubRels) {
@@ -605,8 +607,6 @@ void AsyncMqttClient::_onPublish(uint16_t packetId, uint8_t qos) {
       pendingPubRel.packetId = packetId;
       _pendingPubRels.push_back(pendingPubRel);
     }
-
-    _sendAcks();
   }
 
   _freeCurrentParsedPacket();
