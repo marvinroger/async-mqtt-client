@@ -22,7 +22,8 @@ size_t PubAckOutPacket::size() const {
 }
 
 bool PubAckOutPacket::released() const {
-  if (packetType() == AsyncMqttClientInternals::PacketType.PUBREL) {
+  if (packetType() == AsyncMqttClientInternals::PacketType.PUBREL ||
+      packetType() == AsyncMqttClientInternals::PacketType.PUBREC) {
     return _released;
   }
   return true;
