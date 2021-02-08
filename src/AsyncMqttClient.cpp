@@ -412,7 +412,7 @@ void AsyncMqttClient::_handleQueue() {
       _sent += _client->add(reinterpret_cast<const char*>(_sendHead->data(_sent)), _sendHead->size() - _sent, 0x00);
       _client->send();
       _lastClientActivity = millis();
-      _lastPingRequestTime = millis();
+      _lastPingRequestTime = 0;
       log_i("snd #%u: %u/%u", _sendHead->packetType(), _sent, _sendHead->size());
       if (_sendHead->packetType() == AsyncMqttClientInternals::PacketType.DISCONNECT) {
         disconnect = true;
