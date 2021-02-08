@@ -139,8 +139,6 @@ class AsyncMqttClient {
 
   std::vector<AsyncMqttClientInternals::PendingPubRel> _pendingPubRels;
 
-  std::vector<AsyncMqttClientInternals::PendingAck> _toSendAcks;
-
 #if defined(ESP32)
   SemaphoreHandle_t _xSemaphore = nullptr;
 #elif defined(ESP8266)
@@ -179,6 +177,4 @@ class AsyncMqttClient {
   void _onPubComp(uint16_t packetId);
 
   void _sendPing();
-  void _sendAcks();
-  void _sendDisconnect();
 };

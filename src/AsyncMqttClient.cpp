@@ -43,8 +43,7 @@ AsyncMqttClient::AsyncMqttClient()
 , _currentParsedPacket(nullptr)
 , _remainingLengthBufferPosition(0)
 , _remainingLengthBuffer{0}
-, _pendingPubRels()
-, _toSendAcks() {
+, _pendingPubRels() {
 
 #ifdef ESP32
   sprintf(_generatedClientId, "esp32-%06llx", ESP.getEfuseMac());
@@ -176,9 +175,6 @@ void AsyncMqttClient::_clear() {
   delete _client;
   _client = nullptr;
   _clearQueue(true);  // keep session data for now
-
-  _toSendAcks.clear();
-  _toSendAcks.shrink_to_fit();
 
   _parsingInformation.bufferState = AsyncMqttClientInternals::BufferState::NONE;
 }
@@ -681,14 +677,6 @@ void AsyncMqttClient::_sendPing() {
   log_i("PING");
   AsyncMqttClientInternals::OutPacket* msg = new AsyncMqttClientInternals::PingReqOutPacket;
   _addBack(msg);
-}
-
-void AsyncMqttClient::_sendAcks() {
-  for (size_t i = 0; i < _toSendAcks.size(); i++) {
-    log_i("snd PUBACK");
-    AsyncMqttClientInternals::OutPacket* msg = new AsyncMqttClientInternals::PubAckOutPacket(_toSendAcks[i]);
-    _addBack(msg);
-  }
 }
 
 bool AsyncMqttClient::connected() const {
