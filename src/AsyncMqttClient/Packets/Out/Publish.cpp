@@ -68,3 +68,7 @@ size_t PublishOutPacket::size() const {
 uint16_t PublishOutPacket::packetId() const {
   return _packetId;
 }
+
+void PublishOutPacket::setDup() {
+  _data[0] |= AsyncMqttClientInternals::HeaderFlag.PUBLISH_DUP;
+}
