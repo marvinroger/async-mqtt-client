@@ -64,6 +64,8 @@ AsyncMqttClient::~AsyncMqttClient() {
   vSemaphoreDelete(_xSemaphore);
 #endif
   _clear();
+  _pendingPubRels.clear();
+  _pendingPubRels.shrink_to_fit();
   _clearQueue(false);  // _clear() doesn't clear session data
 }
 
@@ -174,9 +176,6 @@ void AsyncMqttClient::_clear() {
   delete _client;
   _client = nullptr;
   _clearQueue(true);  // keep session data for now
-
-  _pendingPubRels.clear();
-  _pendingPubRels.shrink_to_fit();
 
   _toSendAcks.clear();
   _toSendAcks.shrink_to_fit();
@@ -514,6 +513,8 @@ void AsyncMqttClient::_onConnAck(bool sessionPresent, uint8_t connectReturnCode)
   SEMAPHORE_GIVE();
 
   if (!sessionPresent) {
+    _pendingPubRels.clear();
+    _pendingPubRels.shrink_to_fit();
     _clearQueue(false);  // remove session data
   }
 
@@ -585,12 +586,14 @@ void AsyncMqttClient::_onPublish(uint16_t packetId, uint8_t qos) {
     pendingAck.packetType = AsyncMqttClientInternals::PacketType.PUBACK;
     pendingAck.headerFlag = AsyncMqttClientInternals::HeaderFlag.PUBACK_RESERVED;
     pendingAck.packetId = packetId;
-    _toSendAcks.push_back(pendingAck);
+    AsyncMqttClientInternals::OutPacket* msg = new AsyncMqttClientInternals::PubAckOutPacket(pendingAck);
+    _addBack(msg);
   } else if (qos == 2) {
     pendingAck.packetType = AsyncMqttClientInternals::PacketType.PUBREC;
     pendingAck.headerFlag = AsyncMqttClientInternals::HeaderFlag.PUBREC_RESERVED;
     pendingAck.packetId = packetId;
-    _toSendAcks.push_back(pendingAck);
+    AsyncMqttClientInternals::OutPacket* msg = new AsyncMqttClientInternals::PubAckOutPacket(pendingAck);
+    _addBack(msg);
 
     bool pubRelAwaiting = false;
     for (AsyncMqttClientInternals::PendingPubRel pendingPubRel : _pendingPubRels) {
@@ -605,8 +608,6 @@ void AsyncMqttClient::_onPublish(uint16_t packetId, uint8_t qos) {
       pendingPubRel.packetId = packetId;
       _pendingPubRels.push_back(pendingPubRel);
     }
-
-    _sendAcks();
   }
 
   _freeCurrentParsedPacket();
@@ -619,7 +620,12 @@ void AsyncMqttClient::_onPubRel(uint16_t packetId) {
   pendingAck.packetType = AsyncMqttClientInternals::PacketType.PUBCOMP;
   pendingAck.headerFlag = AsyncMqttClientInternals::HeaderFlag.PUBCOMP_RESERVED;
   pendingAck.packetId = packetId;
-  _toSendAcks.push_back(pendingAck);
+  if (_sendHead && _sendHead->packetId() == packetId) {
+    AsyncMqttClientInternals::OutPacket* msg = new AsyncMqttClientInternals::PubAckOutPacket(pendingAck);
+    _sendHead->release();
+    _insert(msg);
+    log_i("PUBREC released");
+  }
 
   for (size_t i = 0; i < _pendingPubRels.size(); i++) {
     if (_pendingPubRels[i].packetId == packetId) {
@@ -627,8 +633,6 @@ void AsyncMqttClient::_onPubRel(uint16_t packetId) {
       _pendingPubRels.shrink_to_fit();
     }
   }
-
-  _sendAcks();
 }
 
 void AsyncMqttClient::_onPubAck(uint16_t packetId) {
