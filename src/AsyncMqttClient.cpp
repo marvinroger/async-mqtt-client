@@ -244,8 +244,12 @@ void AsyncMqttClient::_onTimeout() {
 */
 
 void AsyncMqttClient::_onAck(size_t len) {
+#if ASYNC_TCP_SSL_ENABLED
+  log_i("ack tls %u (%u)", len, _acked);
+#else
   _acked += len;
   log_i("ack %u (%u)", len, _acked);
+#endif
   _handleQueue();
 }
 
@@ -401,21 +405,34 @@ void AsyncMqttClient::_handleQueue() {
   // On ESP32, onDisconnect is called within the close()-call. So we need to make sure we don't lock
   bool disconnect = false;
 
+#if ASYNC_TCP_SSL_ENABLED
+  while (_sendHead && _client->space() > 500) {
+#else
   while (_sendHead && _client->space() > 10) {  // send at least 10 bytes
+#endif
+    log_i("space: %u", _client->space());
     // Try to send first
     if (_sendHead->size() > _sent) {
+#if ASYNC_TCP_SSL_ENABLED
+      size_t willSend = ((_sendHead->size() - _sent) < 500) ? _sendHead->size() - _sent : 500;
+      size_t tlsSent = _client->add(reinterpret_cast<const char*>(_sendHead->data(_sent)), willSend, 0x01);
+      _sent += willSend;
+      _acked += willSend;
+      log_i("snd #%u: (tls: %u) %u/%u", _sendHead->packetType(), tlsSent, _sent, _sendHead->size());
+#else
       _sent += _client->add(reinterpret_cast<const char*>(_sendHead->data(_sent)), _sendHead->size() - _sent, 0x00);
+      log_i("snd #%u: %u/%u", _sendHead->packetType(), _sent, _sendHead->size());
+#endif
       _client->send();
       _lastClientActivity = millis();
       _lastPingRequestTime = 0;
-      log_i("snd #%u: %u/%u", _sendHead->packetType(), _sent, _sendHead->size());
       if (_sendHead->packetType() == AsyncMqttClientInternals::PacketType.DISCONNECT) {
         disconnect = true;
       }
     }
 
     // Delete obsolete packets
-    while (_firstPacket && _firstPacket->released() && _acked >= _firstPacket->size()) {
+    while (_firstPacket && _firstPacket->released() && _acked == _firstPacket->size()) {
       log_i("rmv #%u", _firstPacket->packetType());
       AsyncMqttClientInternals::OutPacket* next = _firstPacket->getNext();
       _acked -= _firstPacket->size();
@@ -432,7 +449,7 @@ void AsyncMqttClient::_handleQueue() {
     }
 
     // Stop processing when we have to wait for an MQTT acknowledgment
-    if (_sendHead && _sendHead->size() == _sent) {
+    if (_sendHead && _sendHead->size() <= _sent) {
       if (_sendHead->released()) {
         log_i("p #%d rel", _sendHead->packetType());
         _sendHead = _sendHead->getNext();

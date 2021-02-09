@@ -42,7 +42,7 @@ class Helpers {
   #define GET_FREE_MEMORY() ESP.getMaxAllocHeap()
   #include <esp32-hal-log.h>
 #elif defined(ARDUINO_ARCH_ESP8266)
-  #define SEMAPHORE_TAKE(X) while (_xSemaphore) {} _xSemaphore = true
+  #define SEMAPHORE_TAKE(X) while (_xSemaphore) { /*ESP.wdtFeed();*/ } _xSemaphore = true
   #define SEMAPHORE_GIVE() _xSemaphore = false
   #define GET_FREE_MEMORY() ESP.getMaxFreeBlockSize()
   #if defined(DEBUG_ESP_PORT) && defined(DEBUG_ASYNC_MQTT_CLIENT)
