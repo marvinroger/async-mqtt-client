@@ -13,5 +13,5 @@ class PingReqOutPacket : public OutPacket {
 
  private:
   uint8_t _data[2];
-}; 
+};
 }  // namespace AsyncMqttClientInternals

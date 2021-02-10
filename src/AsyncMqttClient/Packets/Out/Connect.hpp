@@ -25,5 +25,5 @@ class ConnectOutPacket : public OutPacket {
 
  private:
   std::vector<uint8_t> _data;
-}; 
+};
 }  // namespace AsyncMqttClientInternals

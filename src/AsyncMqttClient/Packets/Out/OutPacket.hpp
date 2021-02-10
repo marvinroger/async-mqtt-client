@@ -29,5 +29,5 @@ class OutPacket {
 
  private:
   static uint16_t _packetId;
-}; 
+};
 }  // namespace AsyncMqttClientInternals

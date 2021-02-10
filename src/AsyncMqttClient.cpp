@@ -44,7 +44,6 @@ AsyncMqttClient::AsyncMqttClient()
 , _remainingLengthBufferPosition(0)
 , _remainingLengthBuffer{0}
 , _pendingPubRels() {
-
 #ifdef ESP32
   sprintf(_generatedClientId, "esp32-%06llx", ESP.getEfuseMac());
   _xSemaphore = xSemaphoreCreateMutex();
@@ -486,7 +485,7 @@ void AsyncMqttClient::_clearQueue(bool keepSessionData) {
      *  - QoS 1 and QoS 2 messages which have been sent to the Server, but have not been completely acknowledged.
      *  - QoS 2 messages which have been received from the Server, but have not been completely acknowledged. 
      */
-    if (keepSessionData && 
+    if (keepSessionData &&
         ((current->packetType() == AsyncMqttClientInternals::PacketType.PUBLISH && current->qos() > 0) ||
          current->packetType() == AsyncMqttClientInternals::PacketType.PUBREC ||
          current->packetType() == AsyncMqttClientInternals::PacketType.PUBREL)) {

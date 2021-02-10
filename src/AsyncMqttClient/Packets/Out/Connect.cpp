@@ -127,7 +127,7 @@ ConnectOutPacket::ConnectOutPacket(bool cleanSession,
   _data.push_back('Q');
   _data.push_back('T');
   _data.push_back('T');
-  
+
   _data.push_back(protocolLevel[0]);
   _data.push_back(connectFlags[0]);
   _data.push_back(keepAliveBytes[0]);
