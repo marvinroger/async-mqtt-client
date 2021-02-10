@@ -413,16 +413,21 @@ void AsyncMqttClient::_handleQueue() {
     log_i("space: %u", _client->space());
     // Try to send first
     if (_sendHead->size() > _sent) {
-#if ASYNC_TCP_SSL_ENABLED
-      size_t willSend = ((_sendHead->size() - _sent) < 500) ? _sendHead->size() - _sent : 500;
-      size_t tlsSent = _client->add(reinterpret_cast<const char*>(_sendHead->data(_sent)), willSend, 0x01);
+      #if ASYNC_TCP_SSL_ENABLED
+      // On SSL the TCP library returns the total amount of bytes, not just the unencrypted payload length
+      // This total amount will also be acked later and it is then impossible to know the size of the unencrypted
+      // payload length. So we can not use our own bookkeeping but rely on the TCP library. We therefore
+      // copy the data to TCP and immediately "ack" our own data.
+      size_t willSend = std::min(_sendHead->size() - _sent, _client->space());
+      size_t tlsSent = _client->add(reinterpret_cast<const char*>(_sendHead->data(_sent)), willSend, ASYNC_WRITE_FLAG_COPY);
       _sent += willSend;
       _acked += willSend;
+      (void)tlsSent;
       log_i("snd #%u: (tls: %u) %u/%u", _sendHead->packetType(), tlsSent, _sent, _sendHead->size());
-#else
+      #else
       _sent += _client->add(reinterpret_cast<const char*>(_sendHead->data(_sent)), _sendHead->size() - _sent, 0x00);
       log_i("snd #%u: %u/%u", _sendHead->packetType(), _sent, _sendHead->size());
-#endif
+      #endif
       _client->send();
       _lastClientActivity = millis();
       _lastPingRequestTime = 0;
