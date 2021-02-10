@@ -1,0 +1,27 @@
+name: Build with Platformio
+
+on: [push, pull_request]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Set up Python
+      uses: actions/setup-python@v1
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install platformio
+    - name: Add libraries
+      run: |
+        platformio lib -g install AsyncTCP
+        platformio lib -g install ESPAsyncTCP
+    - name: Getting ready
+      run: |
+        chmod +x ./scripts/CI/build_examples_pio.sh
+    - name: Build examples
+      run: |
+        ./scripts/CI/build_examples_pio.sh
