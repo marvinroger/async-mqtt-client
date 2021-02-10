@@ -58,13 +58,13 @@ AsyncMqttClient::AsyncMqttClient()
 AsyncMqttClient::~AsyncMqttClient() {
   delete _currentParsedPacket;
   delete[] _parsingInformation.topicBuffer;
-#ifdef ESP32
-  vSemaphoreDelete(_xSemaphore);
-#endif
   _clear();
   _pendingPubRels.clear();
   _pendingPubRels.shrink_to_fit();
   _clearQueue(false);  // _clear() doesn't clear session data
+#ifdef ESP32
+  vSemaphoreDelete(_xSemaphore);
+#endif
 }
 
 AsyncMqttClient& AsyncMqttClient::setKeepAlive(uint16_t keepAlive) {
