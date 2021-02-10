@@ -102,7 +102,7 @@ class AsyncMqttClient {
   uint32_t _lastServerActivity;
   uint32_t _lastPingRequestTime;
 
-  char _generatedClientId[18 + 1];  // esp8266-abc123 and esp32-abcdef123456 
+  char _generatedClientId[18 + 1];  // esp8266-abc123 and esp32-abcdef123456
   IPAddress _ip;
   const char* _host;
   bool _useIp;
@@ -143,7 +143,7 @@ class AsyncMqttClient {
   SemaphoreHandle_t _xSemaphore = nullptr;
 #elif defined(ESP8266)
   bool _xSemaphore = false;
-#endif 
+#endif
 
   void _clear();
   void _freeCurrentParsedPacket();

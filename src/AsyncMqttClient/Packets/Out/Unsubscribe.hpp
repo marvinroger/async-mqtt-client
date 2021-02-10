@@ -11,7 +11,7 @@
 namespace AsyncMqttClientInternals {
 class UnsubscribeOutPacket : public OutPacket {
  public:
-  UnsubscribeOutPacket(const char* topic);
+  explicit UnsubscribeOutPacket(const char* topic);
   const uint8_t* data(size_t index = 0) const;
   size_t size() const;
 
@@ -20,5 +20,5 @@ class UnsubscribeOutPacket : public OutPacket {
  private:
   std::vector<uint8_t> _data;
   uint16_t _packetId;
-}; 
+};
 }  // namespace AsyncMqttClientInternals
