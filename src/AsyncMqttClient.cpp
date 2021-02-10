@@ -405,7 +405,12 @@ void AsyncMqttClient::_handleQueue() {
   // On ESP32, onDisconnect is called within the close()-call. So we need to make sure we don't lock
   bool disconnect = false;
 
+#if ASYNC_TCP_SSL_ENABLED
+  while (_sendHead && _client->space() > 500) {
+#else
   while (_sendHead && _client->space() > 10) {  // send at least 10 bytes
+#endif
+    log_i("space: %u", _client->space());
     // Try to send first
     if (_sendHead->size() > _sent) {
       #if ASYNC_TCP_SSL_ENABLED
