@@ -409,7 +409,6 @@ void AsyncMqttClient::_handleQueue() {
 #else
   while (_sendHead && _client->space() > 10) {  // send at least 10 bytes
 #endif
-    log_i("space: %u", _client->space());
     // Try to send first
     if (_sendHead->size() > _sent) {
       #if ASYNC_TCP_SSL_ENABLED
@@ -436,7 +435,7 @@ void AsyncMqttClient::_handleQueue() {
     }
 
     // Delete obsolete packets
-    while (_firstPacket && _firstPacket->released() && _acked == _firstPacket->size()) {
+    while (_firstPacket && _firstPacket->released() && _acked >= _firstPacket->size()) {
       log_i("rmv #%u", _firstPacket->packetType());
       AsyncMqttClientInternals::OutPacket* next = _firstPacket->getNext();
       _acked -= _firstPacket->size();
@@ -453,7 +452,7 @@ void AsyncMqttClient::_handleQueue() {
     }
 
     // Stop processing when we have to wait for an MQTT acknowledgment
-    if (_sendHead && _sendHead->size() <= _sent) {
+    if (_sendHead && _sendHead->size() == _sent) {
       if (_sendHead->released()) {
         log_i("p #%d rel", _sendHead->packetType());
         _sendHead = _sendHead->getNext();
