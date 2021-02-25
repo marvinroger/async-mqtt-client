@@ -13,7 +13,7 @@ class OutPacket {
   virtual ~OutPacket();
   virtual const uint8_t* data(size_t index = 0) const = 0;
   virtual size_t size() const = 0;
-  virtual bool released() const;
+  bool released() const;
   uint8_t packetType() const;
   uint16_t packetId() const;
   uint8_t qos() const;

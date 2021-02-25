@@ -12,8 +12,6 @@ class PubAckOutPacket : public OutPacket {
   const uint8_t* data(size_t index = 0) const;
   size_t size() const;
 
-  bool released() const override;
-
  private:
   uint8_t _data[4];
 };

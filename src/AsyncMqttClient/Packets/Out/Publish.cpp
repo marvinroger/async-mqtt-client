@@ -2,9 +2,7 @@
 
 using AsyncMqttClientInternals::PublishOutPacket;
 
-PublishOutPacket::PublishOutPacket(const char* topic, uint8_t qos, bool retain, const char* payload, size_t length)
-: timeout(0)
-, noTries(0) {
+PublishOutPacket::PublishOutPacket(const char* topic, uint8_t qos, bool retain, const char* payload, size_t length) {
   char fixedHeader[5];
   fixedHeader[0] = AsyncMqttClientInternals::PacketType.PUBLISH;
   fixedHeader[0] = fixedHeader[0] << 4;
