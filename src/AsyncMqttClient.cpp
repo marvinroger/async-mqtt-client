@@ -343,10 +343,8 @@ void AsyncMqttClient::_onPoll() {
   // send ping to ensure the server will receive at least one message inside keepalive window
   if (_state == CONNECTED && _lastPingRequestTime == 0 && (millis() - _lastClientActivity) >= (_keepAlive * 1000 * 0.7)) {
     _sendPing();
-
   // send ping to verify if the server is still there (ensure this is not a half connection)
   } else if (_state == CONNECTED && _lastPingRequestTime == 0 && (millis() - _lastServerActivity) >= (_keepAlive * 1000 * 0.7)) {
-    
     _sendPing();
   }
   _handleQueue();
@@ -487,7 +485,6 @@ void AsyncMqttClient::_clearQueue(bool keepSessionData) {
         delete packet;
         packet = next;
       }
-    
     /* Delete everything when not keeping session data
      */
     } else {
