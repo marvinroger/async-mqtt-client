@@ -42,7 +42,7 @@ void WiFiEvent(WiFiEvent_t event) {
     case SYSTEM_EVENT_STA_DISCONNECTED:
         Serial.println("WiFi lost connection");
         xTimerStop(mqttReconnectTimer, 0); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
-		xTimerStart(wifiReconnectTimer, 0);
+        xTimerStart(wifiReconnectTimer, 0);
         break;
     }
 }
