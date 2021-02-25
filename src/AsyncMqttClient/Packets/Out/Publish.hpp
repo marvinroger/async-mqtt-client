@@ -18,6 +18,10 @@ class PublishOutPacket : public OutPacket {
 
   void setDup();  // you cannot unset dup
 
+ public:
+  uint32_t timeout;
+  uint8_t noTries;
+
  private:
   std::vector<uint8_t> _data;
   uint16_t _packetId;

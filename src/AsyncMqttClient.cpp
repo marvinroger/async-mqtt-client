@@ -1,12 +1,10 @@
 #include "AsyncMqttClient.hpp"
 
 AsyncMqttClient::AsyncMqttClient()
-: _client(nullptr)
-, _firstPacket(nullptr)
-, _lastPacket(nullptr)
-, _sendHead(nullptr)
+: _client()
+, _head(nullptr)
+, _tail(nullptr)
 , _sent(0)
-, _acked(0)
 , _state(DISCONNECTED)
 , _tlsBadFingerprint(false)
 , _lastClientActivity(0)
@@ -44,6 +42,14 @@ AsyncMqttClient::AsyncMqttClient()
 , _remainingLengthBufferPosition(0)
 , _remainingLengthBuffer{0}
 , _pendingPubRels() {
+  _client.onConnect([](void* obj, AsyncClient* c) { (static_cast<AsyncMqttClient*>(obj))->_onConnect(); }, this);
+  _client.onDisconnect([](void* obj, AsyncClient* c) { (static_cast<AsyncMqttClient*>(obj))->_onDisconnect(); }, this);
+  // _client.onError([](void* obj, AsyncClient* c, int8_t error) { (static_cast<AsyncMqttClient*>(obj))->_onError(error); }, this);
+  // _client.onTimeout([](void* obj, AsyncClient* c, uint32_t time) { (static_cast<AsyncMqttClient*>(obj))->_onTimeout(); }, this);
+  _client.onAck([](void* obj, AsyncClient* c, size_t len, uint32_t time) { (static_cast<AsyncMqttClient*>(obj))->_onAck(len); }, this);
+  _client.onData([](void* obj, AsyncClient* c, void* data, size_t len) { (static_cast<AsyncMqttClient*>(obj))->_onData(static_cast<char*>(data), len); }, this);
+  _client.onPoll([](void* obj, AsyncClient* c) { (static_cast<AsyncMqttClient*>(obj))->_onPoll(); }, this);
+  _client.setNoDelay(true);  // send small packets immediately (PINGREQ/DISCONN are only 2 bytes)
 #ifdef ESP32
   sprintf(_generatedClientId, "esp32-%06llx", ESP.getEfuseMac());
   _xSemaphore = xSemaphoreCreateMutex();
@@ -171,8 +177,6 @@ void AsyncMqttClient::_clear() {
   _lastPingRequestTime = 0;
   _tlsBadFingerprint = false;
   _freeCurrentParsedPacket();
-  delete _client;
-  _client = nullptr;
   _clearQueue(true);  // keep session data for now
 
   _parsingInformation.bufferState = AsyncMqttClientInternals::BufferState::NONE;
@@ -183,7 +187,7 @@ void AsyncMqttClient::_onConnect() {
   log_i("TCP conn, MQTT CONNECT");
 #if ASYNC_TCP_SSL_ENABLED
   if (_secure && _secureServerFingerprints.size() > 0) {
-    SSL* clientSsl = _client->getSSL();
+    SSL* clientSsl = _client.getSSL();
 
     bool sslFoundFingerprint = false;
     for (std::array<uint8_t, SHA1_SIZE> fingerprint : _secureServerFingerprints) {
@@ -195,7 +199,7 @@ void AsyncMqttClient::_onConnect() {
 
     if (!sslFoundFingerprint) {
       _tlsBadFingerprint = true;
-      _client->close(true);
+      _client.close(true);
       return;
     }
   }
@@ -243,12 +247,7 @@ void AsyncMqttClient::_onTimeout() {
 */
 
 void AsyncMqttClient::_onAck(size_t len) {
-#if ASYNC_TCP_SSL_ENABLED
-  log_i("ack tls %u (%u)", len, _acked);
-#else
-  _acked += len;
-  log_i("ack %u (%u)", len, _acked);
-#endif
+  log_i("ack %u", len);
   _handleQueue();
 }
 
@@ -347,6 +346,7 @@ void AsyncMqttClient::_onPoll() {
 
   // send ping to verify if the server is still there (ensure this is not a half connection)
   } else if (_state == CONNECTED && _lastPingRequestTime == 0 && (millis() - _lastServerActivity) >= (_keepAlive * 1000 * 0.7)) {
+    
     _sendPing();
   }
   _handleQueue();
@@ -356,13 +356,13 @@ void AsyncMqttClient::_onPoll() {
 
 void AsyncMqttClient::_insert(AsyncMqttClientInternals::OutPacket* packet) {
   // We only use this for QoS2 PUBREL so there must be a PUBLISH packet present.
-  // The queue therefore cannot be empty and _sendHead points to this PUBLISH packet.
+  // The queue therefore cannot be empty and _head points to this PUBLISH packet.
   SEMAPHORE_TAKE();
   log_i("new insert #%u", packet->packetType());
-  packet->setNext(_sendHead->getNext());
-  _sendHead->setNext(packet);
-  if (_sendHead == _lastPacket) {  // PUB packet is the only one in the queue
-    _lastPacket = packet;
+  packet->next = _head->next;
+  _head->next = packet;
+  if (_head == _tail) {  // PUB packet is the only one in the queue
+    _tail = packet;
   }
   SEMAPHORE_GIVE();
   _handleQueue();
@@ -371,16 +371,15 @@ void AsyncMqttClient::_insert(AsyncMqttClientInternals::OutPacket* packet) {
 void AsyncMqttClient::_addFront(AsyncMqttClientInternals::OutPacket* packet) {
   // This is only used for the CONNECT packet, to be able to establish a connection
   // before anything else. The queue can be empty or has packets from the continued session.
-  // IN both cases, _sendHead should always point to the CONNECT packet afterwards.
+  // In both cases, _head should always point to the CONNECT packet afterwards.
   SEMAPHORE_TAKE();
   log_i("new front #%u", packet->packetType());
-  if (_firstPacket == nullptr) {
-    _lastPacket = packet;
+  if (_head == nullptr) {
+    _tail = packet;
   } else {
-    packet->setNext(_firstPacket);
+    packet->next = _head;
   }
-  _firstPacket = packet;
-  _sendHead = _firstPacket;
+  _head = packet;
   SEMAPHORE_GIVE();
   _handleQueue();
 }
@@ -388,13 +387,13 @@ void AsyncMqttClient::_addFront(AsyncMqttClientInternals::OutPacket* packet) {
 void AsyncMqttClient::_addBack(AsyncMqttClientInternals::OutPacket* packet) {
   SEMAPHORE_TAKE();
   log_i("new back #%u", packet->packetType());
-  if (!_lastPacket) {
-    _firstPacket = packet;
+  if (!_tail) {
+    _head = packet;
   } else {
-    _lastPacket->setNext(packet);
+    _tail->next = packet;
   }
-  _lastPacket = packet;
-  if (!_sendHead) _sendHead = _lastPacket;
+  _tail = packet;
+  _tail->next = nullptr;
   SEMAPHORE_GIVE();
   _handleQueue();
 }
@@ -404,58 +403,36 @@ void AsyncMqttClient::_handleQueue() {
   // On ESP32, onDisconnect is called within the close()-call. So we need to make sure we don't lock
   bool disconnect = false;
 
-#if ASYNC_TCP_SSL_ENABLED
-  while (_sendHead && _client->space() > 500) {
-#else
-  while (_sendHead && _client->space() > 10) {  // send at least 10 bytes
-#endif
-    // Try to send first
-    if (_sendHead->size() > _sent) {
-      #if ASYNC_TCP_SSL_ENABLED
-      // On SSL the TCP library returns the total amount of bytes, not just the unencrypted payload length
-      // This total amount will also be acked later and it is then impossible to know the size of the unencrypted
-      // payload length. So we can not use our own bookkeeping but rely on the TCP library. We therefore
-      // copy the data to TCP and immediately "ack" our own data.
-      size_t willSend = std::min(_sendHead->size() - _sent, _client->space());
-      size_t tlsSent = _client->add(reinterpret_cast<const char*>(_sendHead->data(_sent)), willSend, ASYNC_WRITE_FLAG_COPY);
+  while (_head && _client.space() > 10) {  // safe but arbitrary value, send at least 10 bytes
+    // 1. try to send
+    if (_head->size() > _sent) {
+      // On SSL the TCP library returns the total amount of bytes, not just the unencrypted payload length.
+      // So we calculate the amount to be written ourselves.
+      size_t willSend = std::min(_head->size() - _sent, _client.space());
+      size_t realSent = _client.add(reinterpret_cast<const char*>(_head->data(_sent)), willSend, ASYNC_WRITE_FLAG_COPY);  // flag is set by LWIP anyway, added for clarity
       _sent += willSend;
-      _acked += willSend;
-      (void)tlsSent;
-      log_i("snd #%u: (tls: %u) %u/%u", _sendHead->packetType(), tlsSent, _sent, _sendHead->size());
-      #else
-      _sent += _client->add(reinterpret_cast<const char*>(_sendHead->data(_sent)), _sendHead->size() - _sent, 0x00);
-      log_i("snd #%u: %u/%u", _sendHead->packetType(), _sent, _sendHead->size());
-      #endif
-      _client->send();
+      (void)realSent;
+      _client.send();
       _lastClientActivity = millis();
       _lastPingRequestTime = 0;
-      if (_sendHead->packetType() == AsyncMqttClientInternals::PacketType.DISCONNECT) {
+      #if ASYNC_TCP_SSL_ENABLED
+      log_i("snd #%u: (tls: %u) %u/%u", _head->packetType(), tlsSent, _sent, _head->size());
+      #else
+      log_i("snd #%u: %u/%u", _head->packetType(), _sent, _head->size());
+      #endif
+      if (_head->packetType() == AsyncMqttClientInternals::PacketType.DISCONNECT) {
         disconnect = true;
       }
     }
 
-    // Delete obsolete packets
-    while (_firstPacket && _firstPacket->released() && _acked >= _firstPacket->size()) {
-      log_i("rmv #%u", _firstPacket->packetType());
-      AsyncMqttClientInternals::OutPacket* next = _firstPacket->getNext();
-      _acked -= _firstPacket->size();
-      if (_firstPacket == _sendHead) {
-        _sendHead = next;
-        _sent = 0;
-      }
-      delete _firstPacket;
-      _firstPacket = next;
-      if (!next) {
-        log_i("q empty");
-        _lastPacket = next;  // queue is empty
-      }
-    }
-
-    // Stop processing when we have to wait for an MQTT acknowledgment
-    if (_sendHead && _sendHead->size() == _sent) {
-      if (_sendHead->released()) {
-        log_i("p #%d rel", _sendHead->packetType());
-        _sendHead = _sendHead->getNext();
+    // 2. stop processing when we have to wait for an MQTT acknowledgment
+    if (_head->size() == _sent) {
+      if (_head->released()) {
+        log_i("p #%d rel", _head->packetType());
+        AsyncMqttClientInternals::OutPacket* tmp = _head;
+        _head = _head->next;
+        if (!_head) _tail = nullptr;
+        delete tmp;
         _sent = 0;
       } else {
         break;  // sending is complete however send next only after mqtt confirmation
@@ -466,47 +443,60 @@ void AsyncMqttClient::_handleQueue() {
   SEMAPHORE_GIVE();
   if (disconnect) {
     log_i("snd DISCONN, disconnecting");
-    _client->close();
+    _client.close();
   }
 }
 
 void AsyncMqttClient::_clearQueue(bool keepSessionData) {
   SEMAPHORE_TAKE();
-  AsyncMqttClientInternals::OutPacket* current = _firstPacket;
-  AsyncMqttClientInternals::OutPacket* currentSend = _sendHead;
-  _firstPacket = nullptr;
-  _lastPacket = nullptr;
-  _sendHead = nullptr;
-  bool setDup = true;
+  AsyncMqttClientInternals::OutPacket* packet = _head;
+  _head = nullptr;
+  _tail = nullptr;
 
-  while (current) {
+  while (packet) {
     /* MQTT spec 3.1.2.4 Clean Session:
      *  - QoS 1 and QoS 2 messages which have been sent to the Server, but have not been completely acknowledged.
-     *  - QoS 2 messages which have been received from the Server, but have not been completely acknowledged. 
+     *  - QoS 2 messages which have been received from the Server, but have not been completely acknowledged.
+     * + (unsent PUB messages with QoS > 0)
+     * 
+     * To be kept:
+     * - possibly first message (sent to server but not acked)
+     * - PUBREC messages (QoS 2 PUB received but not acked)
+     * - PUBCOMP messages (QoS 2 PUBREL received but not acked)
      */
-    if (keepSessionData &&
-        ((current->packetType() == AsyncMqttClientInternals::PacketType.PUBLISH && current->qos() > 0) ||
-         current->packetType() == AsyncMqttClientInternals::PacketType.PUBREC ||
-         current->packetType() == AsyncMqttClientInternals::PacketType.PUBREL)) {
-      log_i("keep #%u", current->packetType());
-      if (setDup && current->packetType() == AsyncMqttClientInternals::PacketType.PUBLISH) {
-        reinterpret_cast<AsyncMqttClientInternals::PublishOutPacket*>(current)->setDup();
+    if (keepSessionData) {
+      if (packet->qos() > 0 && packet->size() <= _sent) {  // check for qos includes check for PUB-packet type
+        reinterpret_cast<AsyncMqttClientInternals::PublishOutPacket*>(packet)->setDup();
+        AsyncMqttClientInternals::OutPacket* next = packet->next;
+        log_i("keep #%u", packet->packetType());
+        SEMAPHORE_GIVE();
+        _addBack(packet);
+        SEMAPHORE_TAKE();
+        packet = next;
+      } else if (packet->qos() > 0 ||
+                 packet->packetType() == AsyncMqttClientInternals::PacketType.PUBREC ||
+                 packet->packetType() == AsyncMqttClientInternals::PacketType.PUBCOMP) {
+        AsyncMqttClientInternals::OutPacket* next = packet->next;
+        log_i("keep #%u", packet->packetType());
+        SEMAPHORE_GIVE();
+        _addBack(packet);
+        SEMAPHORE_TAKE();
+        packet = next;
+      } else {
+        AsyncMqttClientInternals::OutPacket* next = packet->next;
+        delete packet;
+        packet = next;
       }
-      if (current == currentSend) {
-        setDup = false;
-      }
-      _addBack(current);
-      _lastPacket->setNext(nullptr);
-      current = current->getNext();
+    
+    /* Delete everything when not keeping session data
+     */
     } else {
-      log_i("rmv #%u", current->packetType());
-      AsyncMqttClientInternals::OutPacket* next = current->getNext();
-      delete current;
-      current = next;
+      AsyncMqttClientInternals::OutPacket* next = packet->next;
+      delete packet;
+      packet = next;
     }
   }
   _sent = 0;
-  _acked = 0;
   SEMAPHORE_GIVE();
 }
 
@@ -521,13 +511,6 @@ void AsyncMqttClient::_onConnAck(bool sessionPresent, uint8_t connectReturnCode)
   log_i("CONNACK");
   _freeCurrentParsedPacket();
 
-  SEMAPHORE_TAKE();
-  if (_firstPacket && _firstPacket->packetType() == AsyncMqttClientInternals::PacketType.CONNECT) {
-    _firstPacket->release();
-    log_i("CONNECT released");
-  }
-  SEMAPHORE_GIVE();
-
   if (!sessionPresent) {
     _pendingPubRels.clear();
     _pendingPubRels.shrink_to_fit();
@@ -538,7 +521,7 @@ void AsyncMqttClient::_onConnAck(bool sessionPresent, uint8_t connectReturnCode)
     _state = CONNECTED;
     for (auto callback : _onConnectUserCallbacks) callback(sessionPresent);
   } else {
-    // Callbacks are handled by the ondisconnect function which is called from the AsyncTcp lib
+    // Callbacks are handled by the onDisconnect function which is called from the AsyncTcp lib
   }
   _handleQueue();  // send any remaining data from continued session
 }
@@ -547,8 +530,8 @@ void AsyncMqttClient::_onSubAck(uint16_t packetId, char status) {
   log_i("SUBACK");
   _freeCurrentParsedPacket();
   SEMAPHORE_TAKE();
-  if (_sendHead && _sendHead->packetId() == packetId) {
-    _sendHead->release();
+  if (_head && _head->packetId() == packetId) {
+    _head->release();
     log_i("SUB released");
   }
   SEMAPHORE_GIVE();
@@ -562,8 +545,8 @@ void AsyncMqttClient::_onUnsubAck(uint16_t packetId) {
   log_i("UNSUBACK");
   _freeCurrentParsedPacket();
   SEMAPHORE_TAKE();
-  if (_sendHead && _sendHead->packetId() == packetId) {
-    _sendHead->release();
+  if (_head && _head->packetId() == packetId) {
+    _head->release();
     log_i("UNSUB released");
   }
   SEMAPHORE_GIVE();
@@ -636,9 +619,9 @@ void AsyncMqttClient::_onPubRel(uint16_t packetId) {
   pendingAck.packetType = AsyncMqttClientInternals::PacketType.PUBCOMP;
   pendingAck.headerFlag = AsyncMqttClientInternals::HeaderFlag.PUBCOMP_RESERVED;
   pendingAck.packetId = packetId;
-  if (_sendHead && _sendHead->packetId() == packetId) {
+  if (_head && _head->packetId() == packetId) {
     AsyncMqttClientInternals::OutPacket* msg = new AsyncMqttClientInternals::PubAckOutPacket(pendingAck);
-    _sendHead->release();
+    _head->release();
     _insert(msg);
     log_i("PUBREC released");
   }
@@ -653,8 +636,8 @@ void AsyncMqttClient::_onPubRel(uint16_t packetId) {
 
 void AsyncMqttClient::_onPubAck(uint16_t packetId) {
   _freeCurrentParsedPacket();
-  if (_sendHead && _sendHead->packetId() == packetId) {
-    _sendHead->release();
+  if (_head && _head->packetId() == packetId) {
+    _head->release();
     log_i("PUB released");
   }
 
@@ -674,8 +657,8 @@ void AsyncMqttClient::_onPubRec(uint16_t packetId) {
   log_i("snd PUBREL");
 
   AsyncMqttClientInternals::OutPacket* msg = new AsyncMqttClientInternals::PubAckOutPacket(pendingAck);
-  if (_sendHead && _sendHead->packetId() == packetId) {
-    _sendHead->release();
+  if (_head && _head->packetId() == packetId) {
+    _head->release();
     log_i("PUB released");
   }
   _insert(msg);
@@ -684,9 +667,9 @@ void AsyncMqttClient::_onPubRec(uint16_t packetId) {
 void AsyncMqttClient::_onPubComp(uint16_t packetId) {
   _freeCurrentParsedPacket();
 
-  // _sendHead points to the PUBREL package
-  if (_sendHead && _sendHead->packetId() == packetId) {
-    _sendHead->release();
+  // _head points to the PUBREL package
+  if (_head && _head->packetId() == packetId) {
+    _head->release();
     log_i("PUBREL released");
   }
 
@@ -695,6 +678,7 @@ void AsyncMqttClient::_onPubComp(uint16_t packetId) {
 
 void AsyncMqttClient::_sendPing() {
   log_i("PING");
+  _lastPingRequestTime = millis();
   AsyncMqttClientInternals::OutPacket* msg = new AsyncMqttClientInternals::PingReqOutPacket;
   _addBack(msg);
 }
@@ -704,30 +688,21 @@ bool AsyncMqttClient::connected() const {
 }
 
 void AsyncMqttClient::connect() {
-  if (_state != DISCONNECTED || _client) return;
+  if (_state != DISCONNECTED) return;
   log_i("CONNECTING");
   _state = CONNECTING;
-  _client = new AsyncClient;
-  _client->onConnect([](void* obj, AsyncClient* c) { (static_cast<AsyncMqttClient*>(obj))->_onConnect(); }, this);
-  _client->onDisconnect([](void* obj, AsyncClient* c) { (static_cast<AsyncMqttClient*>(obj))->_onDisconnect(); }, this);
-  // _client->onError([](void* obj, AsyncClient* c, int8_t error) { (static_cast<AsyncMqttClient*>(obj))->_onError(error); }, this);
-  // _client->onTimeout([](void* obj, AsyncClient* c, uint32_t time) { (static_cast<AsyncMqttClient*>(obj))->_onTimeout(); }, this);
-  _client->onAck([](void* obj, AsyncClient* c, size_t len, uint32_t time) { (static_cast<AsyncMqttClient*>(obj))->_onAck(len); }, this);
-  _client->onData([](void* obj, AsyncClient* c, void* data, size_t len) { (static_cast<AsyncMqttClient*>(obj))->_onData(static_cast<char*>(data), len); }, this);
-  _client->onPoll([](void* obj, AsyncClient* c) { (static_cast<AsyncMqttClient*>(obj))->_onPoll(); }, this);
-  _client->setNoDelay(true);  // send small packets immediately (PINGREQ/DISCONN are only 2 bytes)
 
 #if ASYNC_TCP_SSL_ENABLED
   if (_useIp) {
-    _client->connect(_ip, _port, _secure);
+    _client.connect(_ip, _port, _secure);
   } else {
-    _client->connect(_host, _port, _secure);
+    _client.connect(_host, _port, _secure);
   }
 #else
   if (_useIp) {
-    _client->connect(_ip, _port);
+    _client.connect(_ip, _port);
   } else {
-    _client->connect(_host, _port);
+    _client.connect(_host, _port);
   }
 #endif
 }
@@ -736,7 +711,7 @@ void AsyncMqttClient::disconnect(bool force) {
   log_i("DISCONNECT (f:%d)", force);
   if (force) {
     _state = DISCONNECTED;
-    _client->close(true);
+    _client.close(true);
   } else {
     _state = DISCONNECTING;
     AsyncMqttClientInternals::OutPacket* msg = new AsyncMqttClientInternals::DisconnOutPacket;
