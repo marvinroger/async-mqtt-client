@@ -28,7 +28,3 @@ bool PubAckOutPacket::released() const {
   }
   return true;
 }
-
-uint16_t PubAckOutPacket::packetId() const {
-  return _packetId;
-}

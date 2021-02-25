@@ -15,8 +15,6 @@ class SubscribeOutPacket : public OutPacket {
   const uint8_t* data(size_t index = 0) const;
   size_t size() const;
 
-  uint16_t packetId() const;
-
  private:
   std::vector<uint8_t> _data;
   uint16_t _packetId;

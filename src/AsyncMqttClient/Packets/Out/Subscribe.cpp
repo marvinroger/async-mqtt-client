@@ -47,7 +47,3 @@ const uint8_t* SubscribeOutPacket::data(size_t index) const {
 size_t SubscribeOutPacket::size() const {
   return _data.size();
 }
-
-uint16_t SubscribeOutPacket::packetId() const {
-  return _packetId;
-}
