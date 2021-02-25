@@ -414,7 +414,7 @@ void AsyncMqttClient::_handleQueue() {
       _lastClientActivity = millis();
       _lastPingRequestTime = 0;
       #if ASYNC_TCP_SSL_ENABLED
-      log_i("snd #%u: (tls: %u) %u/%u", _head->packetType(), tlsSent, _sent, _head->size());
+      log_i("snd #%u: (tls: %u) %u/%u", _head->packetType(), realSent, _sent, _head->size());
       #else
       log_i("snd #%u: %u/%u", _head->packetType(), _sent, _head->size());
       #endif
