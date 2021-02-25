@@ -19,6 +19,5 @@ class UnsubscribeOutPacket : public OutPacket {
 
  private:
   std::vector<uint8_t> _data;
-  uint16_t _packetId;
 };
 }  // namespace AsyncMqttClientInternals

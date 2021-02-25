@@ -15,7 +15,7 @@ class OutPacket {
   virtual size_t size() const = 0;
   virtual bool released() const;
   uint8_t packetType() const;
-  virtual uint16_t packetId() const;
+  uint16_t packetId() const;
   uint8_t qos() const;
   void release();
 
@@ -27,8 +27,9 @@ class OutPacket {
  protected:
   static uint16_t _getNextPacketId();
   bool _released;
+  uint16_t _packetId;
 
  private:
-  static uint16_t _packetId;
+  static uint16_t _nextPacketId;
 };
 }  // namespace AsyncMqttClientInternals

@@ -14,7 +14,6 @@ class PublishOutPacket : public OutPacket {
   PublishOutPacket(const char* topic, uint8_t qos, bool retain, const char* payload, size_t length);
   const uint8_t* data(size_t index = 0) const;
   size_t size() const;
-  uint16_t packetId() const override;
 
   void setDup();  // you cannot unset dup
 

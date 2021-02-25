@@ -40,7 +40,3 @@ const uint8_t* UnsubscribeOutPacket::data(size_t index) const {
 size_t UnsubscribeOutPacket::size() const {
   return _data.size();
 }
-
-uint16_t UnsubscribeOutPacket::packetId() const {
-  return _packetId;
-}
