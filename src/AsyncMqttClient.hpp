@@ -85,12 +85,10 @@ class AsyncMqttClient {
   const char* getClientId() const;
 
  private:
-  AsyncClient* _client;  // AsyncClient has to be destroyed created because of bug https://github.com/me-no-dev/ESPAsyncTCP/issues/160
-  AsyncMqttClientInternals::OutPacket* _firstPacket;
-  AsyncMqttClientInternals::OutPacket* _lastPacket;
-  AsyncMqttClientInternals::OutPacket* _sendHead;
+  AsyncClient _client;
+  AsyncMqttClientInternals::OutPacket* _head;
+  AsyncMqttClientInternals::OutPacket* _tail;
   size_t _sent;
-  size_t _acked;
   enum {
     CONNECTING,
     CONNECTED,

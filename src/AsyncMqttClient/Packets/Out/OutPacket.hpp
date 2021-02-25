@@ -19,12 +19,13 @@ class OutPacket {
   uint8_t qos() const;
   void release();
 
-  OutPacket* getNext() const;
-  void setNext(OutPacket* packet);
+ public:
+  OutPacket* next;
+  uint32_t timeout;
+  uint8_t noTries;
 
  protected:
   static uint16_t _getNextPacketId();
-  OutPacket* _next;
   bool _released;
 
  private:

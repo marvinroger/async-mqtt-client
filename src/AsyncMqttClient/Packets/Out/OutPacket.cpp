@@ -3,8 +3,10 @@
 using AsyncMqttClientInternals::OutPacket;
 
 OutPacket::OutPacket()
-: _next(nullptr)
-, _released(false) {}
+: next(nullptr)
+, timeout(0)
+, noTries(0)
+, _released(true) {}
 
 OutPacket::~OutPacket() {}
 
@@ -29,14 +31,6 @@ uint8_t OutPacket::qos() const {
 
 void OutPacket::release() {
   _released = true;
-}
-
-OutPacket* OutPacket::getNext() const {
-  return _next;
-}
-
-void OutPacket::setNext(OutPacket* packet) {
-  _next = packet;
 }
 
 uint16_t OutPacket::_packetId = 0;
