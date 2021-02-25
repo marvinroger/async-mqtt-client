@@ -705,11 +705,12 @@ void AsyncMqttClient::connect() {
 }
 
 void AsyncMqttClient::disconnect(bool force) {
+  if (_state == DISCONNECTED) return;
   log_i("DISCONNECT (f:%d)", force);
   if (force) {
     _state = DISCONNECTED;
     _client.close(true);
-  } else {
+  } else if (_state != DISCONNECTING) {
     _state = DISCONNECTING;
     AsyncMqttClientInternals::OutPacket* msg = new AsyncMqttClientInternals::DisconnOutPacket;
     _addBack(msg);
