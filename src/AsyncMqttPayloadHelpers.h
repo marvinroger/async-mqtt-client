@@ -1,0 +1,6 @@
+#ifndef SRC_ASYNCMQTTPAYLOADHELPERS_H_
+#define SRC_ASYNCMQTTPAYLOADHELPERS_H_
+
+#include "AsyncMqttPayloadHelpers.hpp"
+
+#endif  // SRC_ASYNCMQTTPAYLOADHELPERS_H_
