@@ -95,7 +95,7 @@ class AsyncMqttClient {
     DISCONNECTING,
     DISCONNECTED
   } _state;
-  bool _tlsBadFingerprint;
+  AsyncMqttClientDisconnectReason _disconnectReason;
   uint32_t _lastClientActivity;
   uint32_t _lastServerActivity;
   uint32_t _lastPingRequestTime;
