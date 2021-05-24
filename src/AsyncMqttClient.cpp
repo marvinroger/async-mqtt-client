@@ -23,7 +23,13 @@ AsyncMqttClient::AsyncMqttClient()
 , _willPayloadLength(0)
 , _willQos(0)
 , _willRetain(false)
-, _parsingInformation { .bufferState = AsyncMqttClientInternals::BufferState::NONE }
+, _parsingInformation { .bufferState = AsyncMqttClientInternals::BufferState::NONE,
+  .maxTopicLength = 0,
+  .topicBuffer = NULL,
+  .packetType = 0,
+  .packetFlags = 0,
+  .remainingLength = 0
+  }
 , _currentParsedPacket(nullptr)
 , _remainingLengthBufferPosition(0)
 , _nextPacketId(1) {
@@ -117,7 +123,14 @@ AsyncMqttClient& AsyncMqttClient::addServerFingerprint(const uint8_t* fingerprin
   _secureServerFingerprints.push_back(newFingerprint);
   return *this;
 }
+#ifdef ESP32
+AsyncMqttClient& AsyncMqttClient::setRootCa(const char* rootca, const size_t len) {
+  _client.setRootCa(rootca, len);
+  return *this;
+}
 #endif
+#endif
+
 
 AsyncMqttClient& AsyncMqttClient::onConnect(AsyncMqttClientInternals::OnConnectUserCallback callback) {
   _onConnectUserCallbacks.push_back(callback);
@@ -176,6 +189,7 @@ void AsyncMqttClient::_onConnect(AsyncClient* client) {
   (void)client;
 
 #if ASYNC_TCP_SSL_ENABLED
+#ifndef ESP32
   if (_secure && _secureServerFingerprints.size() > 0) {
     SSL* clientSsl = _client.getSSL();
 
@@ -193,6 +207,7 @@ void AsyncMqttClient::_onConnect(AsyncClient* client) {
       return;
     }
   }
+#endif
 #endif
 
   char fixedHeader[5];
