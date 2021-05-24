@@ -2,9 +2,8 @@
 
 AsyncMqttClient::AsyncMqttClient()
 : _connected(false)
-, _connectPacketNotEnoughSpace(false)
 , _disconnectOnPoll(false)
-, _tlsBadFingerprint(false)
+, _disconnectReason(AsyncMqttClientDisconnectReason::TCP_DISCONNECTED)
 , _lastClientActivity(0)
 , _lastServerActivity(0)
 , _lastPingRequestTime(0)
@@ -159,8 +158,7 @@ void AsyncMqttClient::_clear() {
   _lastPingRequestTime = 0;
   _connected = false;
   _disconnectOnPoll = false;
-  _connectPacketNotEnoughSpace = false;
-  _tlsBadFingerprint = false;
+  _disconnectReason = AsyncMqttClientDisconnectReason::TCP_DISCONNECTED; // reset any previous
   _freeCurrentParsedPacket();
 
   _pendingPubRels.clear();
@@ -190,7 +188,7 @@ void AsyncMqttClient::_onConnect(AsyncClient* client) {
     }
 
     if (!sslFoundFingerprint) {
-      _tlsBadFingerprint = true;
+      _disconnectReason = AsyncMqttClientDisconnectReason::TLS_BAD_FINGERPRINT;
       _client.close(true);
       return;
     }
@@ -304,7 +302,7 @@ void AsyncMqttClient::_onConnect(AsyncClient* client) {
 
   SEMAPHORE_TAKE();
   if (_client.space() < neededSpace) {
-    _connectPacketNotEnoughSpace = true;
+    _disconnectReason = AsyncMqttClientDisconnectReason::ESP8266_NOT_ENOUGH_SPACE;
     _client.close(true);
     SEMAPHORE_GIVE();
     return;
@@ -354,16 +352,7 @@ void AsyncMqttClient::_onConnect(AsyncClient* client) {
 
 void AsyncMqttClient::_onDisconnect(AsyncClient* client) {
   (void)client;
-  AsyncMqttClientDisconnectReason reason;
-
-  if (_connectPacketNotEnoughSpace) {
-    reason = AsyncMqttClientDisconnectReason::ESP8266_NOT_ENOUGH_SPACE;
-  } else if (_tlsBadFingerprint) {
-    reason = AsyncMqttClientDisconnectReason::TLS_BAD_FINGERPRINT;
-  } else {
-    reason = AsyncMqttClientDisconnectReason::TCP_DISCONNECTED;
-  }
-
+  AsyncMqttClientDisconnectReason reason = _disconnectReason;
   _clear();
 
   for (auto callback : _onDisconnectUserCallbacks) callback(reason);
@@ -501,6 +490,7 @@ void AsyncMqttClient::_onConnAck(bool sessionPresent, uint8_t connectReturnCode)
     for (auto callback : _onConnectUserCallbacks) callback(sessionPresent);
   } else {
     // Callbacks are handled by the ondisconnect function which is called from the AsyncTcp lib
+    _disconnectReason = static_cast<AsyncMqttClientDisconnectReason>(connectReturnCode);
   }
 }
 
