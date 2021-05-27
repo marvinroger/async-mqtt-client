@@ -62,6 +62,16 @@ void onMqttConnect(bool sessionPresent) {
   uint16_t packetIdPub2 = mqttClient.publish("test/lol", 2, true, "test 3");
   Serial.print("Publishing at QoS 2, packetId: ");
   Serial.println(packetIdPub2);
+  
+  packetIdSub = mqttClient.subscribe("Topic3/Example/Test", 2, onSpecificMqttMessage);
+  Serial.print("Subscribing at QoS 2 with specified callback, packetId: ");
+  Serial.println(packetIdSub);
+  mqttClient.publish("Topic1/Example/Test", 0, true, "Test");
+  Serial.println("Publishing \"Test\" to \"Topic1/Example/Test\" at QoS 0");
+  mqttClient.publish("Topic2/Example/Test", 0, true, "Test");
+  Serial.println("Publishing \"Test\" to \"Topic2/Example/Test\" at QoS 0");
+  mqttClient.publish("Topic3/Example/Test", 0, true, "Test");
+  Serial.println("Publishing \"Test\" to \"Topic3/Example/Test\" at QoS 0");
 }
 
 void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
@@ -104,6 +114,23 @@ void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties 
   Serial.println(total);
 }
 
+void onSpecificMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total) {
+  Serial.print("Publish received for specific topic: ");
+  Serial.println(topic);
+  Serial.print("  qos: ");
+  Serial.println(properties.qos);
+  Serial.print("  dup: ");
+  Serial.println(properties.dup);
+  Serial.print("  retain: ");
+  Serial.println(properties.retain);
+  Serial.print("  len: ");
+  Serial.println(len);
+  Serial.print("  index: ");
+  Serial.println(index);
+  Serial.print("  total: ");
+  Serial.println(total);
+}
+
 void onMqttPublish(uint16_t packetId) {
   Serial.println("Publish acknowledged.");
   Serial.print("  packetId: ");
@@ -125,11 +152,12 @@ void setup() {
   mqttClient.onSubscribe(onMqttSubscribe);
   mqttClient.onUnsubscribe(onMqttUnsubscribe);
   mqttClient.onMessage(onMqttMessage);
+  mqttClient.onMessage(onSpecificMqttMessage, "Topic1/#");               // Optional - Overloaded example
+  mqttClient.onFilteredMessage(onSpecificMqttMessage, "Topic2/+/Test");  // Optional - Method for verbose reading
   mqttClient.onPublish(onMqttPublish);
   mqttClient.setServer(MQTT_HOST, MQTT_PORT);
 
   connectToWifi();
 }
 
-void loop() {
-}
+void loop() {}
