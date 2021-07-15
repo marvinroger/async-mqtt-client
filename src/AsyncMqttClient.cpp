@@ -180,6 +180,8 @@ void AsyncMqttClient::_clear() {
   _clearQueue(true);  // keep session data for now
 
   _parsingInformation.bufferState = AsyncMqttClientInternals::BufferState::NONE;
+
+  _client.setRxTimeout(0);
 }
 
 /* TCP */
@@ -267,6 +269,7 @@ void AsyncMqttClient::_onData(char* data, size_t len) {
           case AsyncMqttClientInternals::PacketType.CONNACK:
             log_i("rcv CONNACK");
             _currentParsedPacket = new AsyncMqttClientInternals::ConnAckPacket(&_parsingInformation, std::bind(&AsyncMqttClient::_onConnAck, this, std::placeholders::_1, std::placeholders::_2));
+            _client.setRxTimeout(0);
             break;
           case AsyncMqttClientInternals::PacketType.PINGRESP:
             log_i("rcv PINGRESP");
@@ -378,6 +381,7 @@ void AsyncMqttClient::_addFront(AsyncMqttClientInternals::OutPacket* packet) {
     packet->next = _head;
   }
   _head = packet;
+  _client.setRxTimeout(10);
   SEMAPHORE_GIVE();
   _handleQueue();
 }
