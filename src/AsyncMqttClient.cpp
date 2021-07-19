@@ -381,7 +381,6 @@ void AsyncMqttClient::_addFront(AsyncMqttClientInternals::OutPacket* packet) {
     packet->next = _head;
   }
   _head = packet;
-  _client.setRxTimeout(10);
   SEMAPHORE_GIVE();
   _handleQueue();
 }
@@ -692,6 +691,8 @@ void AsyncMqttClient::connect() {
   if (_state != DISCONNECTED) return;
   log_i("CONNECTING");
   _state = CONNECTING;
+
+  _client.setRxTimeout(_keepAlive);
 
 #if ASYNC_TCP_SSL_ENABLED
   if (_useIp) {
