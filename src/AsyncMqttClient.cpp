@@ -744,6 +744,12 @@ uint16_t AsyncMqttClient::publish(const char* topic, uint8_t qos, bool retain, c
   return msg->packetId();
 }
 
+bool AsyncMqttclient::clearQueue() {
+  if (_state != DISCONNECTED) return false;
+  _clearQueue(false);
+  return true;
+}
+
 const char* AsyncMqttClient::getClientId() const {
   return _clientId;
 }
