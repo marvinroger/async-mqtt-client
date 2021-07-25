@@ -33,6 +33,7 @@ disconnect	KEYWORD2
 subscribe	KEYWORD2
 unsubscribe	KEYWORD2
 publish	KEYWORD2
+clearQueue	KEYWORD2
 
 #######################################
 # Constants (LITERAL1)
