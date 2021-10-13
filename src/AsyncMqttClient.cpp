@@ -150,6 +150,11 @@ AsyncMqttClient& AsyncMqttClient::setClientCert(const char* cli_cert, const size
   _client.setClientKey(cli_key, cli_key_len);
   return *this;
 }
+AsyncMqttClient& AsyncMqttClient::setPsk(const char* psk_ident, const char* psk)
+{
+  _client.setPsk(psk_ident, psk);
+  return *this;
+}
 #endif
 #endif
 

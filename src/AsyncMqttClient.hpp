@@ -73,6 +73,7 @@ class AsyncMqttClient {
 #ifdef ESP32
   AsyncMqttClient& setRootCa(const char* rootca, const size_t len);
   AsyncMqttClient& setClientCert(const char* cli_cert, const size_t cli_cert_len, const char* cli_key, const size_t cli_key_len);
+  AsyncMqttClient& setPsk(const char* psk_ident, const char* psk);
 #endif
 #endif
 
