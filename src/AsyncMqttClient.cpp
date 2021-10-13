@@ -145,6 +145,11 @@ AsyncMqttClient& AsyncMqttClient::setRootCa(const char* rootca, const size_t len
   _client.setRootCa(rootca, len);
   return *this;
 }
+AsyncMqttClient& AsyncMqttClient::setClientCert(const char* cli_cert, const size_t cli_cert_len, const char* cli_key, const size_t cli_key_len) {
+  _client.setClientCert(cli_cert, cli_cert_len);
+  _client.setClientKey(cli_key, cli_key_len);
+  return *this;
+}
 #endif
 #endif
 
