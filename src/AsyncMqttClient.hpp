@@ -19,7 +19,9 @@
 #endif
 
 #if ASYNC_TCP_SSL_ENABLED
+#ifdef ESP8266
 #include <tcp_axtls.h>
+#endif
 #define SHA1_SIZE 20
 #endif
 
