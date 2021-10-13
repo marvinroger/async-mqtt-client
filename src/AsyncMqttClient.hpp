@@ -67,7 +67,9 @@ class AsyncMqttClient {
   AsyncMqttClient& setServer(const char* host, uint16_t port);
 #if ASYNC_TCP_SSL_ENABLED
   AsyncMqttClient& setSecure(bool secure);
+#ifdef ESP8266
   AsyncMqttClient& addServerFingerprint(const uint8_t* fingerprint);
+#endif
 #endif
 
   AsyncMqttClient& onConnect(AsyncMqttClientInternals::OnConnectUserCallback callback);
@@ -123,7 +125,9 @@ class AsyncMqttClient {
   bool _willRetain;
 
 #if ASYNC_TCP_SSL_ENABLED
+#ifdef ESP8266
   std::vector<std::array<uint8_t, SHA1_SIZE>> _secureServerFingerprints;
+#endif
 #endif
 
   std::vector<AsyncMqttClientInternals::OnConnectUserCallback> _onConnectUserCallbacks;

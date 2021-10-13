@@ -29,7 +29,9 @@ AsyncMqttClient::AsyncMqttClient()
 , _willQos(0)
 , _willRetain(false)
 #if ASYNC_TCP_SSL_ENABLED
+#ifdef ESP8266
 , _secureServerFingerprints()
+#endif
 #endif
 , _onConnectUserCallbacks()
 , _onDisconnectUserCallbacks()
@@ -130,12 +132,14 @@ AsyncMqttClient& AsyncMqttClient::setSecure(bool secure) {
   return *this;
 }
 
+#ifdef ESP8266
 AsyncMqttClient& AsyncMqttClient::addServerFingerprint(const uint8_t* fingerprint) {
   std::array<uint8_t, SHA1_SIZE> newFingerprint;
   memcpy(newFingerprint.data(), fingerprint, SHA1_SIZE);
   _secureServerFingerprints.push_back(newFingerprint);
   return *this;
 }
+#endif
 #endif
 
 AsyncMqttClient& AsyncMqttClient::onConnect(AsyncMqttClientInternals::OnConnectUserCallback callback) {
@@ -187,9 +191,9 @@ void AsyncMqttClient::_clear() {
 void AsyncMqttClient::_onConnect() {
   log_i("TCP conn, MQTT CONNECT");
 #if ASYNC_TCP_SSL_ENABLED
+#ifdef ESP8266
   if (_secure && _secureServerFingerprints.size() > 0) {
     bool sslFoundFingerprint = false;
-#ifdef ESP8266
     SSL* clientSsl = _client.getSSL();
 
     for (std::array<uint8_t, SHA1_SIZE> fingerprint : _secureServerFingerprints) {
@@ -198,7 +202,6 @@ void AsyncMqttClient::_onConnect() {
         break;
       }
     }
-#endif
 
     if (!sslFoundFingerprint) {
       _disconnectReason = AsyncMqttClientDisconnectReason::TLS_BAD_FINGERPRINT;
@@ -206,6 +209,7 @@ void AsyncMqttClient::_onConnect() {
       return;
     }
   }
+#endif
 #endif
   AsyncMqttClientInternals::OutPacket* msg =
   new AsyncMqttClientInternals::ConnectOutPacket(_cleanSession,
