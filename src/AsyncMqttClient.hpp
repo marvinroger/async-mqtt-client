@@ -70,6 +70,9 @@ class AsyncMqttClient {
 #ifdef ESP8266
   AsyncMqttClient& addServerFingerprint(const uint8_t* fingerprint);
 #endif
+#ifdef ESP32
+  AsyncMqttClient& setRootCa(const char* rootca, const size_t len);
+#endif
 #endif
 
   AsyncMqttClient& onConnect(AsyncMqttClientInternals::OnConnectUserCallback callback);

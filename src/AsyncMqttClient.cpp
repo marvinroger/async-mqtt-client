@@ -140,6 +140,12 @@ AsyncMqttClient& AsyncMqttClient::addServerFingerprint(const uint8_t* fingerprin
   return *this;
 }
 #endif
+#ifdef ESP32
+AsyncMqttClient& AsyncMqttClient::setRootCa(const char* rootca, const size_t len) {
+  _client.setRootCa(rootca, len);
+  return *this;
+}
+#endif
 #endif
 
 AsyncMqttClient& AsyncMqttClient::onConnect(AsyncMqttClientInternals::OnConnectUserCallback callback) {
