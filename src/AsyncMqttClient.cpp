@@ -31,6 +31,10 @@ AsyncMqttClient::AsyncMqttClient()
 #if ASYNC_TCP_SSL_ENABLED
 , _secureServerFingerprints()
 #endif
+, _wsfilter(nullptr)
+, _wsEnabled(false)
+, _wsUri("/")
+, _wsHost(nullptr)
 , _onConnectUserCallbacks()
 , _onDisconnectUserCallbacks()
 , _onSubscribeUserCallbacks()
@@ -138,6 +142,16 @@ AsyncMqttClient& AsyncMqttClient::addServerFingerprint(const uint8_t* fingerprin
 }
 #endif
 
+AsyncMqttClient& AsyncMqttClient::setWsEnabled(bool wsenabled) {
+  _wsEnabled = wsenabled;
+  return *this;
+}
+
+AsyncMqttClient& AsyncMqttClient::setWsUri(const char * uri) {
+  _wsUri = uri;
+  return *this;
+}
+
 AsyncMqttClient& AsyncMqttClient::onConnect(AsyncMqttClientInternals::OnConnectUserCallback callback) {
   _onConnectUserCallbacks.push_back(callback);
   return *this;
@@ -205,6 +219,28 @@ void AsyncMqttClient::_onConnect() {
     }
   }
 #endif
+
+  if (_wsEnabled) {
+    static const char * ws_mqtt_protos[1] = { "mqtt" };
+    const char * tmpHostPtr;
+
+    if (_wsHost != NULL) delete[] _wsHost;
+    _wsHost = NULL;
+    if (_useIp) {
+      auto sIP = _ip.toString();
+      _wsHost = new char[sIP.length() + 1];
+      strcpy(_wsHost, sIP.c_str());
+      tmpHostPtr = _wsHost;
+    } else {
+      tmpHostPtr = _host;
+    }
+
+    _wsfilter = new AsyncMqttClientInternals::WebsocketFilter(
+      tmpHostPtr,
+      _wsUri,
+      1, ws_mqtt_protos);
+  }
+
   AsyncMqttClientInternals::OutPacket* msg =
   new AsyncMqttClientInternals::ConnectOutPacket(_cleanSession,
                                                  _username,
@@ -227,6 +263,13 @@ void AsyncMqttClient::_onDisconnect() {
   _clear();
 
   for (auto callback : _onDisconnectUserCallbacks) callback(_disconnectReason);
+
+  if (_wsfilter != NULL) {
+    delete _wsfilter;
+    _wsfilter = NULL;
+  }
+  if (_wsHost != NULL) delete[] _wsHost;
+  _wsHost = NULL;
 }
 
 /*
@@ -246,6 +289,69 @@ void AsyncMqttClient::_onAck(size_t len) {
 }
 
 void AsyncMqttClient::_onData(char* data, size_t len) {
+  log_i("data rcv (%u)", len);
+
+  if (_wsfilter == NULL) {
+    _onMQTTData(data, len);
+    return;
+  }
+
+  // Space occupied by data already fetched into websocket will be reused to
+  // hold MQTT payload data.
+  uint8_t * mqttdata = (uint8_t *)data;
+  uint8_t * outbufptr = mqttdata;
+  size_t outputavail = 0;
+  size_t mqttavail = 0;
+  do {
+    size_t proc_len = _wsfilter->addDataFromStream(len, (uint8_t *)data);
+    log_d("pushed %u of %u bytes into websocket filter", proc_len, len);
+    data += proc_len;
+    len -= proc_len;
+    outputavail += proc_len;
+
+    if (proc_len <= 0) {
+      log_w("websocket filter rx full?");
+    } else {
+      while (_wsfilter->isPacketDataAvailable()) {
+        size_t mqttbytes = 0;
+        uint64_t pktoffset = 0;
+        bool pktisbinary = false;
+        bool pktlastfetch = false;
+        _wsfilter->fetchPacketData(outputavail, outbufptr, mqttbytes,
+          pktoffset, pktisbinary, pktlastfetch);
+        log_d("fetched %u/%u mqtt bytes pktoff=%u binary=%u last=%u", mqttbytes, proc_len,
+          (uint32_t)pktoffset, pktisbinary ? 1 : 0, pktlastfetch ? 1 : 0);
+        mqttavail += mqttbytes;
+        outbufptr += mqttbytes;
+        outputavail -= mqttbytes;
+      }
+    }
+
+    // Check for any handshake or protocol errors
+    if (_wsfilter->getError() != AsyncMqttClientInternals::NO_ERROR) {
+      switch (_wsfilter->getError()) {
+      case AsyncMqttClientInternals::HANDSHAKE_FAILED:
+        log_w("Websocket handshake failure");
+        break;
+      case AsyncMqttClientInternals::PROTOCOL_ERROR:
+        log_w("Websocket protocol violation");
+        break;
+      case AsyncMqttClientInternals::REMOTE_CTRL_CLOSE:
+        log_w("Remote side closed websocket: code %hu", _wsfilter->getCloseCode());
+        if (_wsfilter->getCloseReason() != NULL) {
+          log_w("Reason text %s", _wsfilter->getCloseReason());
+        }
+        break;
+      }
+      disconnect(true);
+      break;
+    } else if (len <= 0) {
+      if (mqttavail > 0) _onMQTTData((char *)mqttdata, mqttavail);
+    }
+  } while (len > 0);
+}
+
+void AsyncMqttClient::_onMQTTData(char* data, size_t len) {
   log_i("data rcv (%u)", len);
   size_t currentBytePosition = 0;
   char currentByte;
@@ -395,24 +501,46 @@ void AsyncMqttClient::_handleQueue() {
   SEMAPHORE_TAKE();
   // On ESP32, onDisconnect is called within the close()-call. So we need to make sure we don't lock
   bool disconnect = false;
+  bool wserror = false;
+  bool canflushqueue = true;
 
-  while (_head && _client.space() > 10) {  // safe but arbitrary value, send at least 10 bytes
+  if (_wsfilter != NULL) {
+    canflushqueue = _flushWebsocketTX(wserror);
+    if (!canflushqueue) {
+      if (wserror) disconnect = true;
+    }
+  }
+
+  while (canflushqueue && _head && _client.space() > 10) {  // safe but arbitrary value, send at least 10 bytes
     // 1. try to send
     if (_head->size() > _sent) {
-      // On SSL the TCP library returns the total amount of bytes, not just the unencrypted payload length.
-      // So we calculate the amount to be written ourselves.
-      size_t willSend = std::min(_head->size() - _sent, _client.space());
-      size_t realSent = _client.add(reinterpret_cast<const char*>(_head->data(_sent)), willSend, ASYNC_WRITE_FLAG_COPY);  // flag is set by LWIP anyway, added for clarity
-      _sent += willSend;
-      (void)realSent;
-      _client.send();
-      _lastClientActivity = millis();
-      _lastPingRequestTime = 0;
-      #if ASYNC_TCP_SSL_ENABLED
-      log_i("snd #%u: (tls: %u) %u/%u", _head->packetType(), realSent, _sent, _head->size());
-      #else
-      log_i("snd #%u: %u/%u", _head->packetType(), _sent, _head->size());
-      #endif
+      if (_wsfilter != NULL) {
+        if (_sent == 0 && !_wsfilter->isOpenPacket()) _wsfilter->startPacket(true);
+        size_t realSent = _wsfilter->addPacketData(_head->size() - _sent, _head->data(_sent), true);
+        canflushqueue = _flushWebsocketTX(wserror);
+        if (!canflushqueue) {
+          // At this point, any failure to flush is a websocket error
+          if (wserror) disconnect = true;
+        }
+        _sent += realSent;
+        _lastClientActivity = millis();
+        _lastPingRequestTime = 0;
+      } else {
+        // On SSL the TCP library returns the total amount of bytes, not just the unencrypted payload length.
+        // So we calculate the amount to be written ourselves.
+        size_t willSend = std::min(_head->size() - _sent, _client.space());
+        size_t realSent = _client.add(reinterpret_cast<const char*>(_head->data(_sent)), willSend, ASYNC_WRITE_FLAG_COPY);  // flag is set by LWIP anyway, added for clarity
+        _sent += willSend;
+        (void)realSent;
+        _client.send();
+        _lastClientActivity = millis();
+        _lastPingRequestTime = 0;
+        #if ASYNC_TCP_SSL_ENABLED
+        log_i("snd #%u: (tls: %u) %u/%u", _head->packetType(), realSent, _sent, _head->size());
+        #else
+        log_i("snd #%u: %u/%u", _head->packetType(), _sent, _head->size());
+        #endif
+      }
       if (_head->packetType() == AsyncMqttClientInternals::PacketType.DISCONNECT) {
         disconnect = true;
       }
@@ -435,9 +563,56 @@ void AsyncMqttClient::_handleQueue() {
 
   SEMAPHORE_GIVE();
   if (disconnect) {
-    log_i("snd DISCONN, disconnecting");
+    if (wserror)
+      log_i("websocket error, disconnecting");
+    else
+      log_i("snd DISCONN, disconnecting");
     _client.close();
   }
+}
+
+bool AsyncMqttClient::_flushWebsocketTX(bool & disconnect)
+{
+  // Flush as much of the wsfilter TX buffer as possible, required for handshake
+  while (_client.space() > 10 && _wsfilter->pendingStreamOutputLen() > 0) {
+    log_d("client.space = %u pending ws output = %u", _client.space(), _wsfilter->pendingStreamOutputLen());
+    uint8_t * wsbuffer = NULL;
+    size_t wsbytes = 0;
+    _wsfilter->fetchDataPtrForStream(wsbuffer, wsbytes);
+    wsbytes = std::min(wsbytes, _client.space());
+    size_t wsbytes_sent = _client.add((const char *)wsbuffer, wsbytes, ASYNC_WRITE_FLAG_COPY);
+    if (wsbytes_sent > 0) {
+      _client.send();
+      _wsfilter->discardFetchedData(wsbytes_sent);
+    } else {
+      break;
+    }
+  }
+
+  switch (_wsfilter->getState()) {
+  case AsyncMqttClientInternals::HANDSHAKE_TX:
+  case AsyncMqttClientInternals::HANDSHAKE_RX:
+    // Still negociating websocket handshake
+    log_v("still negotiating handshake");
+    return false;
+  case AsyncMqttClientInternals::HANDSHAKE_ERR:
+    log_w("Websocket handshake failure");
+    disconnect = true;
+    return false;
+  case AsyncMqttClientInternals::WEBSOCKET_ERROR:
+    log_w("Websocket protocol violation");
+    disconnect = true;
+    return false;
+  case AsyncMqttClientInternals::WEBSOCKET_CLOSED:
+    log_w("Remote side closed websocket: code %hu", _wsfilter->getCloseCode());
+    if (_wsfilter->getCloseReason() != NULL) {
+      log_w("Reason text %s", _wsfilter->getCloseReason());
+    }
+    disconnect = true;
+    return false;
+  }
+
+  return true;
 }
 
 void AsyncMqttClient::_clearQueue(bool keepSessionData) {

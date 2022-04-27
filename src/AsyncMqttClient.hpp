@@ -50,6 +50,8 @@
 #include "AsyncMqttClient/Packets/Out/Unsubscribe.hpp"
 #include "AsyncMqttClient/Packets/Out/Publish.hpp"
 
+#include "AsyncMqttClient/WebsocketFilter.hpp"
+
 class AsyncMqttClient {
  public:
   AsyncMqttClient();
@@ -67,6 +69,8 @@ class AsyncMqttClient {
   AsyncMqttClient& setSecure(bool secure);
   AsyncMqttClient& addServerFingerprint(const uint8_t* fingerprint);
 #endif
+  AsyncMqttClient& setWsEnabled(bool wsenabled);
+  AsyncMqttClient& setWsUri(const char * uri);
 
   AsyncMqttClient& onConnect(AsyncMqttClientInternals::OnConnectUserCallback callback);
   AsyncMqttClient& onDisconnect(AsyncMqttClientInternals::OnDisconnectUserCallback callback);
@@ -124,6 +128,11 @@ class AsyncMqttClient {
   std::vector<std::array<uint8_t, SHA1_SIZE>> _secureServerFingerprints;
 #endif
 
+  AsyncMqttClientInternals::WebsocketFilter * _wsfilter;
+  bool _wsEnabled;
+  const char* _wsUri;
+  char* _wsHost;
+
   std::vector<AsyncMqttClientInternals::OnConnectUserCallback> _onConnectUserCallbacks;
   std::vector<AsyncMqttClientInternals::OnDisconnectUserCallback> _onDisconnectUserCallbacks;
   std::vector<AsyncMqttClientInternals::OnSubscribeUserCallback> _onSubscribeUserCallbacks;
@@ -156,12 +165,15 @@ class AsyncMqttClient {
   void _onData(char* data, size_t len);
   void _onPoll();
 
+  void _onMQTTData(char* data, size_t len);
+
   // QUEUE
   void _insert(AsyncMqttClientInternals::OutPacket* packet);    // for PUBREL
   void _addFront(AsyncMqttClientInternals::OutPacket* packet);  // for CONNECT
   void _addBack(AsyncMqttClientInternals::OutPacket* packet);   // all the rest
   void _handleQueue();
   void _clearQueue(bool keepSessionData);
+  bool _flushWebsocketTX(bool & disconnect);
 
   // MQTT
   void _onPingResp();
