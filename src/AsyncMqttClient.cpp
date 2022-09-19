@@ -545,7 +545,6 @@ void AsyncMqttClient::_handleQueue() {
         }
         _sent += realSent;
         _lastClientActivity = millis();
-        _lastPingRequestTime = 0;
       } else {
         // On SSL the TCP library returns the total amount of bytes, not just the unencrypted payload length.
         // So we calculate the amount to be written ourselves.
@@ -555,7 +554,6 @@ void AsyncMqttClient::_handleQueue() {
         (void)realSent;
         _client.send();
         _lastClientActivity = millis();
-        _lastPingRequestTime = 0;
         #if ASYNC_TCP_SSL_ENABLED
         log_i("snd #%u: (tls: %u) %u/%u", _head->packetType(), realSent, _sent, _head->size());
         #else
