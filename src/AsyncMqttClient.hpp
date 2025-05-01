@@ -19,7 +19,9 @@
 #endif
 
 #if ASYNC_TCP_SSL_ENABLED
+#ifdef ESP8266
 #include <tcp_axtls.h>
+#endif
 #define SHA1_SIZE 20
 #endif
 
@@ -50,6 +52,8 @@
 #include "AsyncMqttClient/Packets/Out/Unsubscribe.hpp"
 #include "AsyncMqttClient/Packets/Out/Publish.hpp"
 
+#include "AsyncMqttClient/WebsocketFilter.hpp"
+
 class AsyncMqttClient {
  public:
   AsyncMqttClient();
@@ -65,8 +69,17 @@ class AsyncMqttClient {
   AsyncMqttClient& setServer(const char* host, uint16_t port);
 #if ASYNC_TCP_SSL_ENABLED
   AsyncMqttClient& setSecure(bool secure);
+#ifdef ESP8266
   AsyncMqttClient& addServerFingerprint(const uint8_t* fingerprint);
 #endif
+#ifdef ESP32
+  AsyncMqttClient& setRootCa(const char* rootca, const size_t len);
+  AsyncMqttClient& setClientCert(const char* cli_cert, const size_t cli_cert_len, const char* cli_key, const size_t cli_key_len);
+  AsyncMqttClient& setPsk(const char* psk_ident, const char* psk);
+#endif
+#endif
+  AsyncMqttClient& setWsEnabled(bool wsenabled);
+  AsyncMqttClient& setWsUri(const char * uri);
 
   AsyncMqttClient& onConnect(AsyncMqttClientInternals::OnConnectUserCallback callback);
   AsyncMqttClient& onDisconnect(AsyncMqttClientInternals::OnDisconnectUserCallback callback);
@@ -121,8 +134,15 @@ class AsyncMqttClient {
   bool _willRetain;
 
 #if ASYNC_TCP_SSL_ENABLED
+#ifdef ESP8266
   std::vector<std::array<uint8_t, SHA1_SIZE>> _secureServerFingerprints;
 #endif
+#endif
+
+  AsyncMqttClientInternals::WebsocketFilter * _wsfilter;
+  bool _wsEnabled;
+  const char* _wsUri;
+  char* _wsHost;
 
   std::vector<AsyncMqttClientInternals::OnConnectUserCallback> _onConnectUserCallbacks;
   std::vector<AsyncMqttClientInternals::OnDisconnectUserCallback> _onDisconnectUserCallbacks;
@@ -156,12 +176,15 @@ class AsyncMqttClient {
   void _onData(char* data, size_t len);
   void _onPoll();
 
+  void _onMQTTData(char* data, size_t len);
+
   // QUEUE
   void _insert(AsyncMqttClientInternals::OutPacket* packet);    // for PUBREL
   void _addFront(AsyncMqttClientInternals::OutPacket* packet);  // for CONNECT
   void _addBack(AsyncMqttClientInternals::OutPacket* packet);   // all the rest
   void _handleQueue();
   void _clearQueue(bool keepSessionData);
+  bool _flushWebsocketTX(bool & disconnect);
 
   // MQTT
   void _onPingResp();
