@@ -17,13 +17,15 @@
   "platforms": ["espressif8266", "espressif32"],
   "dependencies": [
     {
+      "owner": "esp32async",
       "name": "ESPAsyncTCP",
-      "version": ">=1.2.2",
+      "version": "^2.0.0",
       "platforms": "espressif8266"
     },
     {
+      "owner": "esp32async",
       "name": "AsyncTCP",
-      "version": ">=1.1.1",
+      "version": "^3.4.10",
       "platforms": "espressif32"
     }
   ]
