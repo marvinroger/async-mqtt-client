@@ -33,13 +33,15 @@ void connectToMqtt() {
 void WiFiEvent(WiFiEvent_t event) {
     Serial.printf("[WiFi-event] event: %d\n", event);
     switch(event) {
-    case SYSTEM_EVENT_STA_GOT_IP:
+    //case SYSTEM_EVENT_STA_GOT_IP:  // arduino-esp32-2.0 branch
+    case ARDUINO_EVENT_WIFI_STA_GOT_IP:        // arduino-esp32-3.0 branch
         Serial.println("WiFi connected");
         Serial.println("IP address: ");
         Serial.println(WiFi.localIP());
         connectToMqtt();
         break;
-    case SYSTEM_EVENT_STA_DISCONNECTED:
+    //case SYSTEM_EVENT_STA_DISCONNECTED:  // arduino-esp32-2.0 branch
+    case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:      // arduino-esp32-3.0 branch
         Serial.println("WiFi lost connection");
         xTimerStop(mqttReconnectTimer, 0); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
         xTimerStart(wifiReconnectTimer, 0);
