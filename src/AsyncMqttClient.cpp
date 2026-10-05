@@ -376,6 +376,11 @@ void AsyncMqttClient::_addFront(AsyncMqttClientInternals::OutPacket* packet) {
   SEMAPHORE_TAKE();
   log_i("new front #%u", packet->packetType());
   _queuedBytes += packet->size();
+  // _sent belongs to the current head. The CONNECT starts a new TCP stream, so a packet left
+  // partially sent on the previous connection must be resent in full after it. Keeping a stale
+  // _sent larger than the CONNECT packet makes _handleQueue() spin forever (neither
+  // size() > _sent nor size() == _sent is true), which ends in a watchdog reset.
+  _sent = 0;
   if (_head == nullptr) {
     _tail = packet;
   } else {
