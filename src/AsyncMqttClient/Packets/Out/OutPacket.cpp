@@ -25,7 +25,8 @@ uint16_t OutPacket::packetId() const {
 
 uint8_t OutPacket::qos() const {
   if (packetType() == AsyncMqttClientInternals::PacketType.PUBLISH) {
-    return (data()[1] & 0x06) >> 1;
+    // QoS lives in the fixed header flags (byte 0), not in the remaining length (byte 1)
+    return (data()[0] & 0x06) >> 1;
   }
   return 0;
 }
