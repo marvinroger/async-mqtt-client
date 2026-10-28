@@ -47,7 +47,8 @@ AsyncMqttClient::AsyncMqttClient()
   _client.onConnect([](void* obj, AsyncClient* c) { (static_cast<AsyncMqttClient*>(obj))->_onConnect(); }, this);
   _client.onDisconnect([](void* obj, AsyncClient* c) { (static_cast<AsyncMqttClient*>(obj))->_onDisconnect(); }, this);
   // _client.onError([](void* obj, AsyncClient* c, int8_t error) { (static_cast<AsyncMqttClient*>(obj))->_onError(error); }, this);
-  // _client.onTimeout([](void* obj, AsyncClient* c, uint32_t time) { (static_cast<AsyncMqttClient*>(obj))->_onTimeout(); }, this);
+  // AsyncTCP suppresses onPoll after an ACK timeout, preventing MQTT keepalive recovery.
+  _client.onTimeout([](void* obj, AsyncClient* c, uint32_t time) { (static_cast<AsyncMqttClient*>(obj))->disconnect(true); }, this);
   _client.onAck([](void* obj, AsyncClient* c, size_t len, uint32_t time) { (static_cast<AsyncMqttClient*>(obj))->_onAck(len); }, this);
   _client.onData([](void* obj, AsyncClient* c, void* data, size_t len) { (static_cast<AsyncMqttClient*>(obj))->_onData(static_cast<char*>(data), len); }, this);
   _client.onPoll([](void* obj, AsyncClient* c) { (static_cast<AsyncMqttClient*>(obj))->_onPoll(); }, this);
@@ -241,10 +242,6 @@ void AsyncMqttClient::_onError(int8_t error) {
   (void)error;
   // _onDisconnect called anyway
 }
-
-void AsyncMqttClient::_onTimeout() {
-  // disconnection will be handled by ping/pong management
-}
 */
 
 void AsyncMqttClient::_onAck(size_t len) {
@@ -432,7 +429,6 @@ void AsyncMqttClient::_handleQueue() {
       #endif
       _client.send();
       _lastClientActivity = millis();
-      _lastPingRequestTime = 0;
       #if ASYNC_TCP_SSL_ENABLED
       log_i("snd #%u: (tls: %u) %u/%u", _head->packetType(), realSent, _sent, _head->size());
       #else

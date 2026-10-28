@@ -162,7 +162,6 @@ class AsyncMqttClient {
   void _onConnect();
   void _onDisconnect();
   // void _onError(int8_t error);
-  // void _onTimeout();
   void _onAck(size_t len);
   void _onData(char* data, size_t len);
   void _onPoll();

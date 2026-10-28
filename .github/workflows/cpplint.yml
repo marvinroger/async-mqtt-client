@@ -16,5 +16,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install cpplint
     - name: Linting
-      run: |
-        cpplint --repository=. --recursive --filter=-whitespace/line_length,-legal/copyright,-runtime/printf,-build/include,-build/namespace,-whitespace/indent_namespace ./src
+      run: make cpplint
+    - name: Host regression tests
+      run: make test
