@@ -750,8 +750,9 @@ uint16_t AsyncMqttClient::subscribe(const char* topic, uint8_t qos) {
   log_i("SUBSCRIBE");
 
   AsyncMqttClientInternals::OutPacket* msg = new AsyncMqttClientInternals::SubscribeOutPacket(topic, qos);
+  const uint16_t packetId = msg->packetId();
   _addBack(msg);
-  return msg->packetId();
+  return packetId;
 }
 
 uint16_t AsyncMqttClient::unsubscribe(const char* topic) {
@@ -759,8 +760,9 @@ uint16_t AsyncMqttClient::unsubscribe(const char* topic) {
   log_i("UNSUBSCRIBE");
 
   AsyncMqttClientInternals::OutPacket* msg = new AsyncMqttClientInternals::UnsubscribeOutPacket(topic);
+  const uint16_t packetId = msg->packetId();
   _addBack(msg);
-  return msg->packetId();
+  return packetId;
 }
 
 uint16_t AsyncMqttClient::publish(const char* topic, uint8_t qos, bool retain, const char* payload, size_t length, bool dup, uint16_t message_id) {
@@ -781,8 +783,9 @@ uint16_t AsyncMqttClient::publish(const char* topic, uint8_t qos, bool retain, c
   log_i("PUBLISH");
 
   AsyncMqttClientInternals::OutPacket* msg = new AsyncMqttClientInternals::PublishOutPacket(topic, qos, retain, payload, length);
+  const uint16_t packetId = msg->packetId();
   _addBack(msg);
-  return msg->packetId();
+  return packetId;
 }
 
 bool AsyncMqttClient::clearQueue() {
