@@ -52,7 +52,6 @@ AsyncMqttClient::AsyncMqttClient()
   _client.onAck([](void* obj, AsyncClient* c, size_t len, uint32_t time) { (static_cast<AsyncMqttClient*>(obj))->_onAck(len); }, this);
   _client.onData([](void* obj, AsyncClient* c, void* data, size_t len) { (static_cast<AsyncMqttClient*>(obj))->_onData(static_cast<char*>(data), len); }, this);
   _client.onPoll([](void* obj, AsyncClient* c) { (static_cast<AsyncMqttClient*>(obj))->_onPoll(); }, this);
-  _client.setNoDelay(true);  // send small packets immediately (PINGREQ/DISCONN are only 2 bytes)
 #ifdef ESP32
   sprintf(_generatedClientId, "esp32-%06llx", ESP.getEfuseMac());
   _xSemaphore = xSemaphoreCreateMutex();
@@ -194,6 +193,7 @@ void AsyncMqttClient::_clear() {
 /* TCP */
 void AsyncMqttClient::_onConnect() {
   log_i("TCP conn, MQTT CONNECT");
+  _client.setNoDelay(true);  // send small packets immediately (PINGREQ/DISCONN are only 2 bytes)
 #if ASYNC_TCP_SSL_ENABLED
   if (_secure && _secureServerFingerprints.size() > 0) {
     SSL* clientSsl = _client.getSSL();
